@@ -61,6 +61,8 @@ vector<point> readData(string filename, int dimensions, int N){
         data.push_back(p);
     }
 
+    file.close();
+
     return data;
 }
 
