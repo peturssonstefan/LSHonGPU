@@ -8,6 +8,7 @@
 #include <direct.h>
 #include <string>
 #include <windows.h>
+#include "gloveparser.cuh"
 //#include <thrust/host_vector.h>
 //#include <thrust/device_vector.h>
 #define GetCurrentDir _getcwd
@@ -23,9 +24,9 @@ __global__ void addKernel(int *c, const int *a, const int *b)
 
 int main()
 {
-	char ch, filename[50], dim[5], currentdir[_MAX_PATH];
+	char filename[50], dim[5], currentdir[_MAX_PATH];
 	int dimensions = 0;
-	FILE *fp;
+
 
 	if (GetCurrentDir(currentdir, sizeof(currentdir)) != NULL) {
 		printf("Current working directory: %s\n", currentdir);
@@ -35,7 +36,7 @@ int main()
 		return 1;
 	}
 
-	//Get file name.
+	//Get the file name for the data set.
 	printf("Enter filename: \n");
 	fgets(filename, sizeof(filename), stdin);
 	filename[strlen(filename) - 1] = '\0';
@@ -51,92 +52,14 @@ int main()
 	dimensions = atoi(dim);
 	printf("Registered %d dimensions \n", dimensions);
 
-	float* matrix = (float *)malloc(glove_vector_count * dimensions * sizeof(float));
-
-	printf("Created matrix \n"); 
-
-	fp = fopen(fullpath, "r");
-	if (fp == NULL) {
-		perror("Error while opening file.");
-	}
-
-	printf("The content of file %s:\n", filename);
-	bool number_is_negative = false; //Checks whether it is a negative number. 
-	int number_counter = 0; //Number of numbers encountered. Perhaps necessary for later use... 
-	int vector_counter = 0; //Number of vectors encountered. 
-	int comma_counter = 0; //The placement of the next comma digit. 
-	int index = 0; //The index in the matrix. 
-	bool comma = false; //Whether a comma has been registered yet. 
-	float x = 0; 
-	while ((ch = fgetc(fp)) != EOF) {
-
-		if (ch == 10) { //New line. 
-			vector_counter++;
-			number_counter = 0;
-		}
-		if (ch == 45) { //Negative number. 
-			number_is_negative = true;
-		}
-		if (ch == 32) { //White space. 
-			if (number_is_negative) {
-				x = x * -1.0; 
-			}
-
-			matrix[index] = x; 
-			number_counter++;
-			number_is_negative = false; 
-			comma = false; 
-			comma_counter = 0; 
-			x = 0; 
-			index++;
-		}
-		if (isdigit(ch)) {
-			if (!comma) { //No comma has been seen yet. 
-				x = ch - 48; 
-				continue; 
-			}
-			double digit = (ch - 48.0) / pow(10, comma_counter);
-			x = x + digit; 
-			comma_counter++; 
-		}
-		if (ch == 46) { //Comma. 
-			comma = true;
-			comma_counter++; 
-		}
-	}
+	float* matrix = parseFile(fullpath, dimensions);
 
 	for (int i = 0; i < 100; i++) {
-		int vectorId = i / 25; 
-		printf("Number %.6f at location %d in matrix is connected to vector %d \n", matrix[i], i, vectorId); 
+		printf("%f", matrix[i]);
 	}
 
-	printf("Vectors counted: %d\n", vector_counter); 
-
-	fclose(fp);
-	free(matrix); 
-	//const int arraySize = 5;
-	//const int a[arraySize] = { 1, 2, 3, 4, 5 };
-	//const int b[arraySize] = { 10, 20, 30, 40, 50 };
-	//int c[arraySize] = { 0 };
-
-	//// Add vectors in parallel.
-	//cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-	//if (cudaStatus != cudaSuccess) {
-	//	fprintf(stderr, "addWithCuda failed!");
-	//	return 1;
-	//}
-
-	//printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-	//	c[0], c[1], c[2], c[3], c[4]);
-
-	//// cudaDeviceReset must be called before exiting in order for profiling and
-	//// tracing tools such as Nsight and Visual Profiler to show complete traces.
-	//cudaStatus = cudaDeviceReset();
-	//if (cudaStatus != cudaSuccess) {
-	//	fprintf(stderr, "cudaDeviceReset failed!");
-	//	return 1;
-	//}
-
+	free(matrix);
+	
 	return 0;
 }
 
