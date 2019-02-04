@@ -8,20 +8,29 @@
 #include<limits>
 #include<functional>
 #include<cmath>
+#include<queue>
+#include<random>
 
 using namespace std;
+
+struct point
+{
+    vector<float> elements;
+    float cachedDistance;
+    int id;
+};
 
 struct goldstandard
 {
     int N;
     int dimensions;
     int k;
-    vector<vector<float>> data;
-    vector<vector<float>> queries;
+    vector<point> data;
+    vector<point> queries;
 };
 
 
-vector<vector<float>> readData(string filename, int dimensions, int N){
+vector<point> readData(string filename, int dimensions, int N){
     ifstream file;
 
     file.open(filename);
@@ -31,47 +40,57 @@ vector<vector<float>> readData(string filename, int dimensions, int N){
         exit(1);
     }
 
-    vector<vector<float>> data;
+    vector<point> data;
 
     for(int j = 0; j < N; j++){
-        vector<float> point(dimensions);
+        vector<float> elements(dimensions);
+        string word;
+        file >> word;
+
         float x;
         for(int i = 0; i < dimensions; i++){
             file >> x;
-            point[i] = x;
+            elements[i] = x;
         }
 
-        data.push_back(point);
+        point p;
+
+        p.elements = elements;
+        p.id = j;
+
+        data.push_back(p);
     }
 
     return data;
 }
 
-void printData(vector<vector<float>> data){
+void printData(vector<point> data){
     for(int i = 0; i < data.size(); i++)
     {
-        for(int j = 0; j < data[0].size(); j++)
+        cout << data[i].id << ": ";
+        for(int j = 0; j < data[0].elements.size(); j++)
         {
-            cout << data[i][j] << " ";
+            cout << data[i].elements[j] << " ";
         }
         cout << endl;
         
     }
 }
 
-void printPoint(vector<float> point){
-    for(float x : point){
-        cout << x << " ";
-    }
+void printPoint(point point){
+    cout << point.id << ": ";
+    // for(float x : point.elements){
+    //     cout << x << " ";
+    // }
     cout << endl;
 }
 
-float magnitude(vector<float> x){
-    return sqrt(accumulate(x.begin(), x.end(), 0.0, [](float state,float xi){ return state + (xi*xi); }));
+float magnitude(point x){
+    return sqrt(accumulate(x.elements.begin(), x.elements.end(), 0.0, [](float state,float xi){ return state + (xi*xi); }));
 }
 
-float cosineDistance(vector<float> x, vector<float> y){
-    float dotProd = inner_product(x.begin(), x.end(), y.begin(), 0.0);
+float cosineDistance(point x, point y){
+    float dotProd = inner_product(x.elements.begin(), x.elements.end(), y.elements.begin(), 0.0);
 
     float xMagnitude = magnitude(x);
     float yMagnitude = magnitude(y);
@@ -84,23 +103,28 @@ float cosineDistance(vector<float> x, vector<float> y){
 }
 
 void computeGoldStandard(goldstandard settings){
-    for(vector<float> q : settings.queries){
-        vector<float> nearest;
-        float minDist = numeric_limits<float>::infinity();
-        for(vector<float> x : settings.data){
-            float dist = cosineDistance(q,x);
-            cout << "Dist calculated: " << dist << endl;
-            printPoint(q);
-            printPoint(x);
-            if(dist < minDist){
-                minDist = dist;
-                nearest = x;
+    for(point q : settings.queries){
+        // use PQ for storing k min elements
+        auto compare = [](point x, point y) { return x.cachedDistance < y.cachedDistance; };
+        priority_queue<point, vector<point>, decltype(compare)> queue(compare);
+
+        for(point x : settings.data){
+            x.cachedDistance = cosineDistance(q,x);
+            cout << "Dist calculated: " << q.id << " - " << x.id << " " << x.cachedDistance << endl;
+
+            queue.push(x);
+
+            if(queue.size() > settings.k){
+                queue.pop();
             }
         }
 
-        cout << "Nearest" << endl;
+        cout << "Nearest for: ";
         printPoint(q);
-        printPoint(nearest);
+        while(!queue.empty()){
+            cout << queue.top().id << " " << queue.top().cachedDistance << endl;
+            queue.pop();
+        }
     }
 
 
@@ -117,8 +141,21 @@ int main(int argc, char** args){
     settings.data = readData(args[1], settings.dimensions, settings.N);
     printData(settings.data);
 
-    settings.queries.push_back(settings.data[settings.data.size()-1]);
-    settings.data.pop_back();
+
+    int numQueies = 2;
+    while(numQueies > 0){
+        // get query points
+        std::random_device rd; // obtain a random number from hardware
+        std::mt19937 eng(rd()); // seed the generator
+        std::uniform_int_distribution<> distr(0, settings.N); // define the range
+
+        // get random element and delete the element from data
+        int i = distr(eng);
+        settings.queries.push_back(settings.data[i]);
+        settings.data.erase(settings.data.begin() + i, settings.data.begin() + i + 1);
+
+        numQueies--;
+    }
 
     computeGoldStandard(settings);
 
