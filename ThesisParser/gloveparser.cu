@@ -3,7 +3,6 @@
 #include <cstring> 
 #include <stdlib.h>
 #include <stdio.h>
-#include <io.h>
 #include <direct.h>
 #include <string>
 #include <windows.h>

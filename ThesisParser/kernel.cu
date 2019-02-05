@@ -4,27 +4,16 @@
 #include <cstring> 
 #include <stdlib.h>
 #include <stdio.h>
-#include <io.h>
 #include <direct.h>
 #include <string>
 #include <windows.h>
 #include "gloveparser.cuh"
-//#include <thrust/host_vector.h>
-//#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
 #define GetCurrentDir _getcwd
 
 int getDimensions(); 
 char* getDataFile();
-
-const int glove_vector_count = 1193514;
-
-
-
-__global__ void addKernel(int *c, const int *a, const int *b)
-{
-	int i = threadIdx.x;
-	c[i] = a[i] + b[i];
-}
 
 int main(){
 
