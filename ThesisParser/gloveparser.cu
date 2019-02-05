@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
-#include <windows.h>
 
 const int glove_vector_count = 1193514;
 

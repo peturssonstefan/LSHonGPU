@@ -5,14 +5,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
-#include <windows.h>
 #include <direct.h> //windows specific file. 
 //#include <unistd.h> //linux specific file. 
 #include "gloveparser.cuh"
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
-#define GetCurrentDir _getcwd
+#define GetCurrentDir _getcwd //Windows version. 
+//#define GetCurrentDir getcwd //Linux version. 
 
+const int max_path = 250; //to avoid linux/windows clashes. 
 int getDimensions(); 
 char* getDataFile();
 
@@ -35,7 +36,7 @@ int main(){
 
 //Get the data file needed. 
 char* getDataFile() {
-	char filename[50], currentdir[_MAX_PATH];
+	char filename[50], currentdir[max_path];
 	if (GetCurrentDir(currentdir, sizeof(currentdir)) != NULL) {
 		printf("Current working directory: %s\n", currentdir);
 	}
@@ -46,7 +47,7 @@ char* getDataFile() {
 	printf("Enter filename: \n");
 	fgets(filename, sizeof(filename), stdin);
 	filename[strlen(filename) - 1] = '\0';
-	char* fullpath = (char*)malloc(_MAX_PATH * sizeof(char));
+	char* fullpath = (char*)malloc(max_path * sizeof(char));
 	strcpy(fullpath, currentdir);
 	strcat(fullpath, "\\datasets\\");
 	strcat(fullpath, filename);
