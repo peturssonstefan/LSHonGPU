@@ -63,7 +63,7 @@ vector<point> readData(string filename, int dimensions, int N){
 
     file.close();
 
-    return data;
+    return data; 
 }
 
 void printData(vector<point> data){
