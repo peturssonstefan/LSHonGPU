@@ -4,9 +4,10 @@
 #include <cstring> 
 #include <stdlib.h>
 #include <stdio.h>
-#include <direct.h>
 #include <string>
 #include <windows.h>
+#include <direct.h> //windows specific file. 
+//#include <unistd.h> //linux specific file. 
 #include "gloveparser.cuh"
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
