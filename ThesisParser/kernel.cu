@@ -13,7 +13,6 @@
 #define GetCurrentDir _getcwd //Windows version. 
 //#define GetCurrentDir getcwd //Linux version. 
 #define SIZE 1024
-const int max_path = 250; //to avoid linux/windows clashes. 
 int getDimensions(); 
 char* getDataFile();
 
@@ -25,18 +24,15 @@ __global__ void addKernel(int *c, const int *a, const int *b)
 	c[i] = a[i] + b[i];
 }
 
-int main(){
+int main(int argc, char **argv){
 
-	char* filepath = getDataFile();
-	int dimensions = getDimensions();
+	char* filepath = argv[1]; 
+	char* dim = argv[2];
+	int dimensions = atoi(dim); 
+	printf("Will process file %s and have registered %d dimensions. \n", filepath, dimensions); 
+
 	float* matrix = parseFile(filepath, dimensions);
 
-	//Print 100 first items. 
-	for (int i = 0; i < 100; i++) {
-		printf("%f \n", matrix[i]);
-	}
-
-	free(filepath);
 	free(matrix);
 
 	printf("\n Done with parsing. Starting GPU Test. \n");
@@ -68,37 +64,6 @@ int main(){
 	return 0;
 
 }
-
-//Get the data file needed. 
-char* getDataFile() {
-	char filename[50], currentdir[max_path];
-	if (GetCurrentDir(currentdir, sizeof(currentdir)) != NULL) {
-		printf("Current working directory: %s\n", currentdir);
-	}
-	else {
-		perror("getcwd() error");
-		exit(1); 
-	}
-	printf("Enter filename: \n");
-	fgets(filename, sizeof(filename), stdin);
-	filename[strlen(filename) - 1] = '\0';
-	char* fullpath = (char*)malloc(max_path * sizeof(char));
-	strcpy(fullpath, currentdir);
-	strcat(fullpath, "\\datasets\\");
-	strcat(fullpath, filename);
-	return fullpath; 
-}
-
-//Get the number of dimensions. 
-int getDimensions() {
-	int dimensions = 0;
-	char dim[5];
-	printf("Enter number of dimensions: \n");
-	fgets(dim, sizeof(dim), stdin);
-	dimensions = atoi(dim);
-	return dimensions; 
-}
-
 
 // Helper function for using CUDA to add vectors in parallel.
 cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
