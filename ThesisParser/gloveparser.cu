@@ -8,11 +8,9 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 
-const int glove_vector_count = 1193514;
-
-thrust::host_vector<Point> parseFile(char* path, int dimensions) {
+thrust::device_vector<Point> parseFile(char* path, int dimensions) {
 	FILE *fp;
-	thrust::host_vector<Point> points;
+	thrust::device_vector<Point> points;
 	fp = fopen(path, "r");
 	if (fp == NULL) {
 		printf("Error while opening file: %s. \n", path);
@@ -22,7 +20,7 @@ thrust::host_vector<Point> parseFile(char* path, int dimensions) {
 	bool number_is_negative = false; //Checks whether it is a negative number. 
 	int ch = 0;
 	int comma_counter = 0; //The placement of the next comma digit. 
-	int index = 0; //The index in the matrix. 
+	int coordinate_index = 0; //The index in the matrix. 
 	bool comma = false; //Whether a comma has been registered yet. 
 	bool isID = true;
 	float x = 0;
@@ -31,6 +29,7 @@ thrust::host_vector<Point> parseFile(char* path, int dimensions) {
 	while ((ch = fgetc(fp)) != EOF) {
 		Point p;	
 		p.ID = 0;
+		p.coordinates = (float*)malloc(dimensions * sizeof(float));
 		while (ch != 10 && ch != EOF) {
 			if (ch == 32) {
 				if (isID) { //Just continue after this. Otherwise we will be adding an unnecassary 0. 
@@ -38,9 +37,10 @@ thrust::host_vector<Point> parseFile(char* path, int dimensions) {
 				}
 				else { //Add number. 
 					if (number_is_negative) x = x * -1.0; //Check if negative. 
-					p.coordinates.push_back(x);
+					p.coordinates[coordinate_index] = x; 
 					//Reset values.
 					x = 0;
+					coordinate_index++; 
 					comma = false;
 					number_is_negative = false;
 					comma_counter = 0;
@@ -72,8 +72,9 @@ thrust::host_vector<Point> parseFile(char* path, int dimensions) {
 
 		//Final add. 
 		if (number_is_negative) x = x * -1.0; 
-		p.coordinates.push_back(x);
+		p.coordinates[coordinate_index] = x; 
 		x = 0;
+		coordinate_index = 0; 
 		comma = false;
 		comma_counter = 0;
 		isID = true; 
@@ -82,9 +83,10 @@ thrust::host_vector<Point> parseFile(char* path, int dimensions) {
 	}
 
 	for (int i = 0; i < points.size(); i++) {
-		printf("Point: %d has vectors: \n", points[i].ID);
-		for (int k = 0; k < points[i].coordinates.size(); k++) {
-			printf("%f	", points[i].coordinates[k]);
+		Point p = points[i];
+		printf("Point: %d has vectors: \n", p.ID);
+		for (int k = 0; k < dimensions; k++) {
+			printf("%f	", p.coordinates[k]);
 		}
 		printf("\n");
 	}

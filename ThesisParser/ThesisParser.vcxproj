@@ -79,11 +79,15 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CudaCompile Include="deviceTest.cu" />
     <CudaCompile Include="gloveparser.cu" />
     <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="linearScan.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="deviceTest.cuh" />
     <ClInclude Include="gloveparser.cuh" />
+    <ClInclude Include="linearScan.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
