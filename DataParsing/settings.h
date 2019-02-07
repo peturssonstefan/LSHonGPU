@@ -5,4 +5,7 @@ class Settings{
         int N;
         int D;
         char* filename;
+        int NumQueryPoints;
+        char* outFileData;
+        char* outFileQueries;
 };
