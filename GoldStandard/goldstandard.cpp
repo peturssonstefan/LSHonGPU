@@ -127,7 +127,7 @@ void computeGoldStandard(goldstandard settings){
     file.open(settings.outFile);
 
     writeDataInfo(file, settings.queries.size(), settings.k);
-    
+    int processedQueries = 0;
     for(point q : settings.queries){
         // use PQ for storing k min elements
         auto compare = [](point x, point y) { return x.cachedDistance < y.cachedDistance; };
@@ -156,6 +156,8 @@ void computeGoldStandard(goldstandard settings){
         for(point p : neihbors){
             writeNeighborInfo(file, p);
         }
+
+        cout << "Processed query: " << processedQueries++ + 1 << " of " << settings.queries.size() << endl;
     }
 
     file.close();
