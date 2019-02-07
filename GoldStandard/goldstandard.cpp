@@ -22,15 +22,14 @@ struct point
 
 struct goldstandard
 {
-    int N;
-    int dimensions;
     int k;
     vector<point> data;
     vector<point> queries;
+    string outFile;
 };
 
 
-vector<point> readData(string filename, int dimensions, int N){
+vector<point> readData(string filename){
     ifstream file;
 
     file.open(filename);
@@ -40,12 +39,18 @@ vector<point> readData(string filename, int dimensions, int N){
         exit(1);
     }
 
+    int N;
+    int dimensions;
+
+    file >> N;
+    file >> dimensions;
+
     vector<point> data;
 
     for(int j = 0; j < N; j++){
         vector<float> elements(dimensions);
-        string word;
-        file >> word;
+        int ID;
+        file >> ID;
 
         float x;
         for(int i = 0; i < dimensions; i++){
@@ -56,7 +61,7 @@ vector<point> readData(string filename, int dimensions, int N){
         point p;
 
         p.elements = elements;
-        p.id = j;
+        p.id = ID;
 
         data.push_back(p);
     }
@@ -104,7 +109,25 @@ float cosineDistance(point x, point y){
     return angularDistance;
 }
 
+void writeDataInfo(ofstream &file, int n, int k){
+    file << n << endl;
+    file << k << endl;
+}
+
+void writeQueryInfo(ofstream &file, point q){
+    file << q.id << ":" << endl;
+}
+
+void writeNeighborInfo(ofstream &file, point p){
+    file << p.id << " " << p.cachedDistance << endl;
+}
+
 void computeGoldStandard(goldstandard settings){
+    ofstream file;
+    file.open(settings.outFile);
+
+    writeDataInfo(file, settings.queries.size(), settings.k);
+    int processedQueries = 0;
     for(point q : settings.queries){
         // use PQ for storing k min elements
         auto compare = [](point x, point y) { return x.cachedDistance < y.cachedDistance; };
@@ -112,7 +135,7 @@ void computeGoldStandard(goldstandard settings){
 
         for(point x : settings.data){
             x.cachedDistance = cosineDistance(q,x);
-            cout << "Dist calculated: " << q.id << " - " << x.id << " " << x.cachedDistance << endl;
+            //cout << "Dist calculated: " << q.id << " - " << x.id << " " << x.cachedDistance << endl;
 
             queue.push(x);
 
@@ -121,43 +144,40 @@ void computeGoldStandard(goldstandard settings){
             }
         }
 
-        cout << "Nearest for: ";
-        printPoint(q);
-        while(!queue.empty()){
-            cout << queue.top().id << " " << queue.top().cachedDistance << endl;
+        writeQueryInfo(file, q);
+
+        // reverse queue to get smallet distance first
+        vector<point> neihbors(queue.size());
+        for(int i = queue.size()-1 ; i >= 0; i--){
+            neihbors[i] = queue.top();
             queue.pop();
         }
+
+        for(point p : neihbors){
+            writeNeighborInfo(file, p);
+        }
+
+        cout << "Processed query: " << processedQueries++ + 1 << " of " << settings.queries.size() << endl;
     }
 
-
+    file.close();
 }
 
 int main(int argc, char** args){
     
+    if(argc != 5){
+        cout << "Not the right amount of arguments" << endl;
+        cout << "K inputDataFile inputQueryFile outputFile" << endl;
+        return 0;
+    }
+
     goldstandard settings;
 
-    settings.N = stoi(args[2]);
-    settings.dimensions = stoi(args[3]);
-    settings.k = stoi(args[4]);
+    settings.k = stoi(args[1]);
+    settings.outFile = args[4];
 
-    settings.data = readData(args[1], settings.dimensions, settings.N);
-    printData(settings.data);
-
-
-    int numQueies = 2;
-    while(numQueies > 0){
-        // get query points
-        std::random_device rd; // obtain a random number from hardware
-        std::mt19937 eng(rd()); // seed the generator
-        std::uniform_int_distribution<> distr(0, settings.N); // define the range
-
-        // get random element and delete the element from data
-        int i = distr(eng);
-        settings.queries.push_back(settings.data[i]);
-        settings.data.erase(settings.data.begin() + i, settings.data.begin() + i + 1);
-
-        numQueies--;
-    }
+    settings.data = readData(args[2]);
+    settings.queries = readData(args[3]);
 
     computeGoldStandard(settings);
 
