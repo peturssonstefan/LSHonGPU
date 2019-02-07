@@ -43,13 +43,13 @@ int main(int argc, char **argv){
 	thrust::device_vector<Point> queries = parseFile(filepath_queries, dimensions);
 
 	printf("Done with parsing files.. \n");
-	thrust::device_vector<QueryPointDistances> distances = scan(data, queries, k); 
+	scan(data, queries, k); 
 
 	/*thrust::device_vector<Point> data_device(data.size()); 
 	thrust::copy(data.begin(), data.end(), data_device.begin());
 */
 
-	//printf("\n Done with parsing. Starting GPU Test. \n");
+	printf("\n Done with parsing. Starting GPU Test. \n");
 
 	////GPU test for server. 
 	//const int arraySize = 5;

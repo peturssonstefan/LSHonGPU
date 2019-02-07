@@ -1,5 +1,7 @@
-#include <thrust/host_vector.h>
+#include <thrust/transform.h>
 #include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/functional.h>
 #include <cstring> 
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,37 +9,37 @@
 #include "linearScan.cuh"
 
 //Angular distance functor.
-struct agFunctor {
-	thrust::device_vector<Point> data;
-	const int k; 
-
-	agFunctor(thrust::device_vector<Point>& _data, int _k) : data(_data), k(_k) {}
-
+struct agFunctor : public thrust::binary_function<float, float, float> {
+	const float a; 
+	agFunctor(float _a): a(_a){}
 	__host__ __device__
-		QueryPointDistances operator()(const Point& q) {
-			QueryPointDistances qpd; 
-			qpd.ID = q.ID; 
-			qpd.distances = (PointDistance*)malloc(k * sizeof(PointDistance)); 
-
-			for (int i = 0; i < data.size(); i++) {
-				if (i < k) {
-					Point p = data[i];
-					PointDistance pointDistance;
-					pointDistance.ID = p.ID;
-					int index = i % 5;
-					pointDistance.distance = 5;
-				}
-			}
-			return qpd;
+		float operator()(const float& x, const float& y) const {
+			return a * x + y;
 		}
 };
 
 thrust::device_vector<QueryPointDistances> scan(thrust::device_vector<Point>& data, thrust::device_vector<Point>& queries, int k) {
 	printf("Starting scan... \n");
-	thrust::device_vector<QueryPointDistances> items; 
-	thrust::transform(queries.begin(), queries.end(), items.begin(), agFunctor(data, k));
+	float x[4] = { 1.0, 1.0, 1.0, 1.0 };
+	float y[4] = { 1.0, 2.0, 3.0, 4.0 };
 
-	printf("Items size: %d", items.size());
+	// transfer to device
+	thrust::device_vector<float> X(x, x + 4);
+	thrust::device_vector<float> Y(y, y + 4);
+
+	// fast method
+	thrust::transform(X.begin(), X.end(), Y.begin(), Y.begin(), agFunctor(k));
 	
-	return items; 
+	thrust::device_vector<QueryPointDistances> items; 
+	//thrust::transform(queries.begin(), queries.end(), items.begin(), agFunctor(data, k));
+
+	cudaDeviceSynchronize();
+
+	for (int i = 0; i < 4; i++) {
+		float tmp = Y[i]; 
+		printf("%d: %f \n", i, tmp);
+	}
+
+	return items;
+	
 }
