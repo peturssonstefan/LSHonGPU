@@ -1,4 +1,4 @@
-#include<iostream>
+#pragma once
 #include"../Models/point.h"
 #include<vector>
 #include"../settings.h"
