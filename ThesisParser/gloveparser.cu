@@ -4,24 +4,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
+#include "gloveparser.cuh"
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 
 const int glove_vector_count = 1193514;
 
-struct Point {
-	int ID;
-	thrust::host_vector<float> coordinates;
-};
-
-float* parseFile(char* path, int dimensions) {
+thrust::host_vector<Point> parseFile(char* path, int dimensions) {
 	FILE *fp;
 	thrust::host_vector<Point> points;
-	float* matrix = (float *)malloc(glove_vector_count * dimensions * sizeof(float));
-	printf("Created matrix \n");
 	fp = fopen(path, "r");
 	if (fp == NULL) {
-		perror("Error while opening file.");
+		printf("Error while opening file: %s. \n", path);
+		exit(-1); 
 	}
 
 	bool number_is_negative = false; //Checks whether it is a negative number. 
@@ -54,19 +49,15 @@ float* parseFile(char* path, int dimensions) {
 			}
 			else if (isID) { // Is the number the ID. 
 				p.ID = (p.ID *10) + (ch - 48);
-				printf("Adding ID: %d \n", p.ID);	
 			}
 			else if(isdigit(ch)){ //Is it a number. 
-				printf("Number: %d \n", (ch - 48));
 				if (comma) { //If comma, than compute correct digit. 
 					double digit = (ch - 48.0) / pow(10, comma_counter);
 					x = x + digit;
-					printf("X is now: %f \n", x);
 					comma_counter++;
 				}
 				else { //Otherwise just assign number. 
 					x = ch - 48.0;
-					printf("X is now: %f \n", x); 
 				}
 			}
 			else if (ch == 45) { //Set negative flag. 
@@ -86,7 +77,6 @@ float* parseFile(char* path, int dimensions) {
 		comma = false;
 		comma_counter = 0;
 		isID = true; 
-		printf("newline encountered. Adding point.\n");
 		//Push back point.
 		points.push_back(p);
 	}
@@ -102,5 +92,5 @@ float* parseFile(char* path, int dimensions) {
 	fclose(fp);
 	printf("Done parsing.\n");
 
-	return matrix;
+	return points;
 }
