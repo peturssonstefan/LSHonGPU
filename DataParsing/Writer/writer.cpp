@@ -12,6 +12,9 @@ void Writer::writeData(vector<Point> data, char* filename){
 
     outFile.open(filename);
 
+    outFile << data.size() << endl;
+    outFile << data[0].data.size() << endl;
+
     for(Point p : data){
         outFile << p.ID << " ";
 
