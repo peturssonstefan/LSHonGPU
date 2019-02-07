@@ -26,14 +26,16 @@ __global__ void addKernel(int *c, const int *a, const int *b)
 
 int main(int argc, char **argv){
 
-	char* filepath = argv[1]; 
-	char* dim = argv[2];
+	char* filepath_data = argv[1];
+	char* filepath_queries = argv[2];
+	char* dim = argv[3];
 	int dimensions = atoi(dim); 
-	printf("Will process file %s and have registered %d dimensions. \n", filepath, dimensions); 
+	printf("Will process data file: %s \n", filepath_data);
+	printf("Will process query file: %s \n", filepath_queries);
+	printf("Using dimenions: %d \n", dimensions);
 
-	float* matrix = parseFile(filepath, dimensions);
-
-	free(matrix);
+	thrust::host_vector<Point> data = parseFile(filepath_data, dimensions);
+	thrust::host_vector<Point> queries = parseFile(filepath_queries, dimensions);
 
 	printf("\n Done with parsing. Starting GPU Test. \n");
 
