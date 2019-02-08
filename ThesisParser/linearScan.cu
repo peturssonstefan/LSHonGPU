@@ -13,10 +13,12 @@
 thrust::device_vector<QueryPointDistances> scan(thrust::device_vector<Point>& data, thrust::device_vector<Point>& queries, int k, int dimensions) {
 	printf("Starting scan... \n");
 	
-	for (Point query : queries) {
+	for (int i = 0; i < queries.size(); i++) {
+		Point query = queries[i];
 		thrust::device_vector<float> queryCoords(query.coordinates, query.coordinates + dimensions);
 
-		for (Point point : data) {
+		for (int j = 0; j < queries.size(); j++) {
+			Point point = data[j];
 			thrust::device_vector<float> pointCoords(point.coordinates, point.coordinates + dimensions);
 
 			thrust::transform(pointCoords.begin(), pointCoords.end(), queryCoords.begin(), pointCoords.begin(), thrust::multiplies<float>());
