@@ -109,6 +109,19 @@ float cosineDistance(point x, point y){
     return angularDistance;
 }
 
+float innerProduct(point x, point y){
+    float dotProd = inner_product(x.elements.begin(), x.elements.end(), y.elements.begin(), 0.0);
+
+    float xMagnitude = magnitude(x);
+    float yMagnitude = magnitude(y);
+
+    cout << xMagnitude << " - " << yMagnitude << endl;
+
+    float sim = dotProd/(xMagnitude * yMagnitude);
+
+    return -sim;
+}
+
 void writeDataInfo(ofstream &file, int n, int k){
     file << n << endl;
     file << k << endl;
@@ -134,7 +147,7 @@ void computeGoldStandard(goldstandard settings){
         priority_queue<point, vector<point>, decltype(compare)> queue(compare);
 
         for(point x : settings.data){
-            x.cachedDistance = cosineDistance(q,x);
+            x.cachedDistance = innerProduct(q,x);
             //cout << "Dist calculated: " << q.id << " - " << x.id << " " << x.cachedDistance << endl;
 
             queue.push(x);
