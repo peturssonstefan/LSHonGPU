@@ -43,7 +43,7 @@ int main(int argc, char **argv){
 	thrust::device_vector<Point> queries = parseFile(filepath_queries, dimensions);
 
 	printf("Done with parsing files.. \n");
-	scan(data, queries, k); 
+	scan(data, queries, k, dimensions); 
 
 	/*thrust::device_vector<Point> data_device(data.size()); 
 	thrust::copy(data.begin(), data.end(), data_device.begin());
