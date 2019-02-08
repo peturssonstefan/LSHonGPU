@@ -12,4 +12,4 @@ struct QueryPointDistances {
 	PointDistance *distances; 
 };
 
-thrust::device_vector<QueryPointDistances> scan(thrust::device_vector<Point>& data, thrust::device_vector<Point>& queries, int k);
+thrust::device_vector<QueryPointDistances> scan(thrust::device_vector<Point>& data, thrust::device_vector<Point>& queries, int k, int dimensions);
