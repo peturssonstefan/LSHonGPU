@@ -115,8 +115,6 @@ float innerProduct(point x, point y){
     float xMagnitude = magnitude(x);
     float yMagnitude = magnitude(y);
 
-    cout << xMagnitude << " - " << yMagnitude << endl;
-
     float sim = dotProd/(xMagnitude * yMagnitude);
 
     return -sim;
