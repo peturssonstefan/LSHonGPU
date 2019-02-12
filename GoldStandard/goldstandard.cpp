@@ -10,6 +10,7 @@
 #include<cmath>
 #include<queue>
 #include<random>
+#include<algorithm>
 
 using namespace std;
 
@@ -23,13 +24,15 @@ struct point
 struct goldstandard
 {
     int k;
-    vector<point> data;
-    vector<point> queries;
+    int nq;
+    int nd;
+    int d;
+    point* data;
+    point* queries;
     string outFile;
 };
 
-
-vector<point> readData(string filename){
+point* readData(string filename, int* n, int* d){
     ifstream file;
 
     file.open(filename);
@@ -39,21 +42,18 @@ vector<point> readData(string filename){
         exit(1);
     }
 
-    int N;
-    int dimensions;
+    file >> (*n);
+    file >> (*d);
 
-    file >> N;
-    file >> dimensions;
+    point* data = new point[(*n)];
 
-    vector<point> data;
-
-    for(int j = 0; j < N; j++){
-        vector<float> elements(dimensions);
+    for(int j = 0; j < (*n); j++){
+        vector<float> elements((*d));
         int ID;
         file >> ID;
 
         float x;
-        for(int i = 0; i < dimensions; i++){
+        for(int i = 0; i < (*d); i++){
             file >> x;
             elements[i] = x;
         }
@@ -63,7 +63,7 @@ vector<point> readData(string filename){
         p.elements = elements;
         p.id = ID;
 
-        data.push_back(p);
+        data[j] = p;
     }
 
     file.close();
@@ -109,6 +109,17 @@ float cosineDistance(point x, point y){
     return angularDistance;
 }
 
+float innerProduct(point x, point y){
+    float dotProd = inner_product(x.elements.begin(), x.elements.end(), y.elements.begin(), 0.0);
+    
+    float xMagnitude = magnitude(x);
+    float yMagnitude = magnitude(y);
+
+    float sim = dotProd/(xMagnitude * yMagnitude);
+
+    return -sim;
+}
+
 void writeDataInfo(ofstream &file, int n, int k){
     file << n << endl;
     file << k << endl;
@@ -126,38 +137,35 @@ void computeGoldStandard(goldstandard settings){
     ofstream file;
     file.open(settings.outFile);
 
-    writeDataInfo(file, settings.queries.size(), settings.k);
+    writeDataInfo(file, settings.nq, settings.k);
     int processedQueries = 0;
-    for(point q : settings.queries){
+    for(int qi = 0; qi < settings.nq; qi++){
+        point q = settings.queries[qi];
+        
         // use PQ for storing k min elements
         auto compare = [](point x, point y) { return x.cachedDistance < y.cachedDistance; };
-        priority_queue<point, vector<point>, decltype(compare)> queue(compare);
-
-        for(point x : settings.data){
-            x.cachedDistance = cosineDistance(q,x);
-            //cout << "Dist calculated: " << q.id << " - " << x.id << " " << x.cachedDistance << endl;
-
-            queue.push(x);
-
-            if(queue.size() > settings.k){
-                queue.pop();
-            }
+        
+        for(int pi = 0; pi < settings.nd; pi++){
+            point p = settings.data[pi];
+            p.cachedDistance =  innerProduct(q,p);
+            //TODO fix this - probaly need pointers to the points 
+            settings.data[pi] = p;
         }
+
+        // for(int i = 0; i < settings.nd; i++){
+        //     point p = settings.data[i];
+        //     cout << p.cachedDistance << endl;
+        // }
+        
+        sort(settings.data, settings.data + settings.nd, compare);
 
         writeQueryInfo(file, q);
 
-        // reverse queue to get smallet distance first
-        vector<point> neihbors(queue.size());
-        for(int i = queue.size()-1 ; i >= 0; i--){
-            neihbors[i] = queue.top();
-            queue.pop();
+        for(int i = 0; i < settings.k; i++){
+            writeNeighborInfo(file, settings.data[i]);
         }
 
-        for(point p : neihbors){
-            writeNeighborInfo(file, p);
-        }
-
-        cout << "Processed query: " << processedQueries++ + 1 << " of " << settings.queries.size() << endl;
+        cout << "Processed query: " << processedQueries++ + 1 << " of " << settings.nq << endl;
     }
 
     file.close();
@@ -176,8 +184,15 @@ int main(int argc, char** args){
     settings.k = stoi(args[1]);
     settings.outFile = args[4];
 
-    settings.data = readData(args[2]);
-    settings.queries = readData(args[3]);
+    char* dataFile = args[2];
+    char* queryFile = args[3];
+    
+    settings.data = readData(dataFile, &settings.nd, &settings.d);
+    settings.queries = readData(queryFile, &settings.nq, & settings.d);
+
+    for(int i = 0; i < settings.nq; i++){
+        cout << settings.queries[i].id << endl;
+    }
 
     computeGoldStandard(settings);
 
