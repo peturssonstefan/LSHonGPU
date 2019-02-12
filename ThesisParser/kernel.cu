@@ -6,15 +6,11 @@
 #include <stdio.h>
 #include <string>
 #include <iostream>
-#include <direct.h> //windows specific file. 
-//#include <unistd.h> //linux specific file. 
 #include "gloveparser.cuh"
 #include <thrust/host_vector.h>
 #include "linearScan.cuh"
 #include <thrust/device_vector.h>
 #include <thrust/copy.h>
-#define GetCurrentDir _getcwd //Windows version. 
-//#define GetCurrentDir getcwd //Linux version. 
 #define SIZE 1024
 int getDimensions(); 
 char* getDataFile();
@@ -31,19 +27,35 @@ int main(int argc, char **argv){
 
 	char* filepath_data = argv[1];
 	char* filepath_queries = argv[2];
-	char* dim = argv[3];
-	char* _k = argv[4];
-	int dimensions = atoi(dim);
+	//char* dim = argv[3];
+	char* _k = argv[3];
+	//int dimensions = atoi(dim);
 	int k = atoi(_k);
+
+	int n = 0; 
+	int dimensions = 0; 
+
+
 	printf("Will process data file: %s \n", filepath_data);
 	printf("Will process query file: %s \n", filepath_queries);
 	printf("Using dimenions: %d \n", dimensions);
 
-	thrust::device_vector<Point> data = parseFile(filepath_data, dimensions);
-	thrust::device_vector<Point> queries = parseFile(filepath_queries, dimensions);
+	thrust::device_vector<Point> data = parseFile(filepath_data, n, dimensions);
+	thrust::device_vector<Point> queries = parseFile(filepath_queries,n,dimensions);
+
+	printf("n: %d\n", n);
+	printf("d: %d\n", dimensions);
 
 	printf("Done with parsing files.. \n");
-	scan(data, queries, k, dimensions); 
+	
+	//thrust::device_vector<QueryPointDistances> distances = scan(data, queries, k, dimensions);
+
+	//for (QueryPointDistances qpd : distances) {
+	//	printf("%d:\n", qpd.ID);
+	//	for (int i = 0; i < k; i++) {
+	//		printf("%d %f\n", qpd.distances[i].ID, qpd.distances[i].distance);
+	//	}
+	//}
 
 	/*thrust::device_vector<Point> data_device(data.size()); 
 	thrust::copy(data.begin(), data.end(), data_device.begin());

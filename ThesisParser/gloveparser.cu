@@ -8,7 +8,7 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 
-thrust::device_vector<Point> parseFile(char* path, int dimensions) {
+thrust::device_vector<Point> parseFile(char* path, int& n, int& dimensions) {
 	FILE *fp;
 	thrust::device_vector<Point> points;
 	fp = fopen(path, "r");
@@ -25,6 +25,13 @@ thrust::device_vector<Point> parseFile(char* path, int dimensions) {
 	bool isID = true;
 	float x = 0;
 	printf("Parsing file.\n");
+
+	char _n[256], d[256];
+	fgets(_n, sizeof(_n), fp); 
+	fgets(d, sizeof(d), fp);
+
+	n = atoi(_n); 
+	dimensions = atoi(d); 
 
 	while ((ch = fgetc(fp)) != EOF) {
 		Point p;	
@@ -80,15 +87,6 @@ thrust::device_vector<Point> parseFile(char* path, int dimensions) {
 		isID = true; 
 		//Push back point.
 		points.push_back(p);
-	}
-
-	for (int i = 0; i < points.size(); i++) {
-		Point p = points[i];
-		printf("Point: %d has vectors: \n", p.ID);
-		for (int k = 0; k < dimensions; k++) {
-			printf("%f	", p.coordinates[k]);
-		}
-		printf("\n");
 	}
 
 	fclose(fp);

@@ -13,4 +13,4 @@ struct Point {
 	float *coordinates;
 };
 
-thrust::device_vector<Point> parseFile(char* path, int dimensions);
+thrust::device_vector<Point> parseFile(char* path, int& n, int& dimensions);
