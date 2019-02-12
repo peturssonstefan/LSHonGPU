@@ -39,53 +39,12 @@ int main(int argc, char **argv){
 	printf("Will process data file: %s \n", filepath_data);
 	printf("Will process query file: %s \n", filepath_queries);
 	printf("Using dimenions: %d \n", dimensions);
-
-	thrust::device_vector<Point> data = parseFile(filepath_data, n, dimensions);
-	thrust::device_vector<Point> queries = parseFile(filepath_queries,n,dimensions);
-
-	printf("n: %d\n", n);
-	printf("d: %d\n", dimensions);
-
-	printf("Done with parsing files.. \n");
 	
-	//thrust::device_vector<QueryPointDistances> distances = scan(data, queries, k, dimensions);
+	float* list = parseFile(filepath_data, n, dimensions); 
 
-	//for (QueryPointDistances qpd : distances) {
-	//	printf("%d:\n", qpd.ID);
-	//	for (int i = 0; i < k; i++) {
-	//		printf("%d %f\n", qpd.distances[i].ID, qpd.distances[i].distance);
-	//	}
-	//}
-
-	/*thrust::device_vector<Point> data_device(data.size()); 
-	thrust::copy(data.begin(), data.end(), data_device.begin());
-*/
-
-	printf("\n Done with parsing. Starting GPU Test. \n");
-
-	////GPU test for server. 
-	//const int arraySize = 5;
-	//const int a[arraySize] = { 1, 2, 3, 4, 5 };
-	//const int b[arraySize] = { 10, 20, 30, 40, 50 };
-	//int c[arraySize] = { 0 };
-
-	//// Add vectors in parallel.
-	//cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-	//if (cudaStatus != cudaSuccess) {
-	//	fprintf(stderr, "addWithCuda failed!");
-	//	return 1;
-	//}
-
-	//printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-	//	c[0], c[1], c[2], c[3], c[4]);
-
-	//// cudaDeviceReset must be called before exiting in order for profiling and
-	//// tracing tools such as Nsight and Visual Profiler to show complete traces.
-	//cudaStatus = cudaDeviceReset();
-	//if (cudaStatus != cudaSuccess) {
-	//	fprintf(stderr, "cudaDeviceReset failed!");
-	//	return 1;
-	//}
+	for (int i = 0; i < 1000; i++) {
+		printf("list[%d] = %f \n", i, list[i]);
+	}
 
 	return 0;
 

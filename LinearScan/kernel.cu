@@ -3,7 +3,7 @@
 #include "device_launch_parameters.h"
 #include<math.h>
 #include<iostream>
-
+#include "gloveparser.cuh"
 #include <stdio.h>
 
 __global__
@@ -13,28 +13,39 @@ void add(int n, int d, float *x, float *y, float *z) {
 	float dotProduct; 
 	int queryIndex = threadIdx.x;
 	int index = queryIndex * d;
+
 	for (int i = 0; i < n; i++) {
 		float dotProduct = 0; 
 		float magnitude_x = 0.0;
 		float magnitude_y = 0.0;
 		for (int j = 0; j < d; j++) {
-			dotProduct += x[queryIndex + j] * y[d*i + j];
-			magnitude_x += x[queryIndex + j] * x[queryIndex + j]; 
+			dotProduct += x[index + j] * y[d*i + j];
+			magnitude_x += x[index + j] * x[index + j];
 			magnitude_y += y[d*i + j] * y[d*i + j];
 		}
 
 		magnitude_x = sqrt(magnitude_x);
 		magnitude_y = sqrt(magnitude_y);
-		z[queryIndex * n + i] = dotProduct / (magnitude_x * magnitude_y); 
+		z[queryIndex * n + i] = -(dotProduct / (magnitude_x * magnitude_y)); 
+		if (i == 0) {
+			printf("Q %d = %f \n",queryIndex, z[queryIndex*n]); 
+		}
 	}
 }
 
 
-int main()
+int main(int argc, char **argv)
 {
-	const int N_data = 5;
-	const int N_query = 5; 
-	const int d = 5;
+	char* filepath_data = argv[1];
+	char* filepath_queries = argv[2];
+	//char* dim = argv[3];
+	//char* _k = argv[3];
+	//int dimensions = atoi(dim);
+	//int k = atoi(_k);
+
+	int N_data = 0;
+	int N_query = 0; 
+	int d = 0;
 	cudaError_t cudaStatus;
 	cudaStatus = cudaSetDevice(0);
 	if (cudaStatus != cudaSuccess) {
@@ -44,18 +55,19 @@ int main()
 	float *x;
 	float *y;
 	float *z;
-
-	x = (float*)malloc(N_query * d * sizeof(float));
-	y = (float*)malloc(N_data * d * sizeof(float));
+	printf("Parsing files... \n");
+	x = parseFile(filepath_queries, N_query, d); 
+	y = parseFile(filepath_data, N_data, d);
+	printf("Done parsing files. \n");
 	z = (float*)malloc(N_data*N_query * sizeof(float)); 
 
-	for (int i = 0; i < N_query * d; i++) {
+	/*for (int i = 0; i < N_query * d; i++) {
 		x[i] = 1.0f;
 	}
 
 	for (int i = 0; i < N_data*d; i++) {
 		y[i] = 2.0f;
-	}
+	}*/
 
 	float* dev_x = 0;
 	float* dev_y = 0;
@@ -90,9 +102,9 @@ int main()
 		return -1;
 	}
 
-	for (int i = 0; i < N_data*N_query; i++) {
-		printf("z[%d] = %f \n", i, z[i]);
-	}
+	//for (int i = 0; i < N_query*d; i++) { 
+	//	printf
+	//}
 
 	cudaFree(dev_x);
 	cudaFree(dev_y);

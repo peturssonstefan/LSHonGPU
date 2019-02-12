@@ -8,9 +8,4 @@
 #include <string>
 #include <iostream>
 
-struct Point {
-	int ID;
-	float *coordinates;
-};
-
 float* parseFile(char* path, int& n, int& dimensions);
