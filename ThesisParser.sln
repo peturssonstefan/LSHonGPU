@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28307.106
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ThesisParser", "ThesisParser\ThesisParser.vcxproj", "{F4F2308B-2056-4DDF-ACD3-DC0380C109A7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LinearScan", "LinearScan\LinearScan.vcxproj", "{876AA82C-C3F6-4936-8F41-DC8ACFAE2A9B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +17,10 @@ Global
 		{F4F2308B-2056-4DDF-ACD3-DC0380C109A7}.Debug|x64.Build.0 = Debug|x64
 		{F4F2308B-2056-4DDF-ACD3-DC0380C109A7}.Release|x64.ActiveCfg = Release|x64
 		{F4F2308B-2056-4DDF-ACD3-DC0380C109A7}.Release|x64.Build.0 = Release|x64
+		{876AA82C-C3F6-4936-8F41-DC8ACFAE2A9B}.Debug|x64.ActiveCfg = Debug|x64
+		{876AA82C-C3F6-4936-8F41-DC8ACFAE2A9B}.Debug|x64.Build.0 = Debug|x64
+		{876AA82C-C3F6-4936-8F41-DC8ACFAE2A9B}.Release|x64.ActiveCfg = Release|x64
+		{876AA82C-C3F6-4936-8F41-DC8ACFAE2A9B}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

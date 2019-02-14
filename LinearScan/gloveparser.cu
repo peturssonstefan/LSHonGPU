@@ -5,16 +5,14 @@
 #include <stdio.h>
 #include <string>
 #include "gloveparser.cuh"
-#include <thrust/host_vector.h>
-#include <thrust/device_vector.h>
 
 float* parseFile(char* path, int& n, int& dimensions) {
 	FILE *fp;
-	float* list; 
+	float* list;
 	fp = fopen(path, "r");
 	if (fp == NULL) {
 		printf("Error while opening file: %s. \n", path);
-		exit(-1); 
+		exit(-1);
 	}
 
 	bool number_is_negative = false; //Checks whether it is a negative number. 
@@ -27,16 +25,16 @@ float* parseFile(char* path, int& n, int& dimensions) {
 	printf("Parsing file.\n");
 
 	char _n[256], d[256];
-	fgets(_n, sizeof(_n), fp); 
+	fgets(_n, sizeof(_n), fp);
 	fgets(d, sizeof(d), fp);
 
-	n = atoi(_n); 
-	dimensions = atoi(d); 
+	n = atoi(_n);
+	dimensions = atoi(d);
 
 	list = (float*)malloc(n * dimensions * sizeof(float));
 
 	while ((ch = fgetc(fp)) != EOF) {
-		
+
 		while (ch != 10 && ch != EOF) {
 			if (ch == 32) {
 				if (isID) { //Just continue after this. Otherwise we will be adding an unnecassary 0. 
@@ -44,11 +42,11 @@ float* parseFile(char* path, int& n, int& dimensions) {
 				}
 				else { //Add number. 
 					if (number_is_negative) x = x * -1.0; //Check if negative. 
-					printf("Adding to list[%d] value %f \n", index, x); 
-					list[index] = x; 
+					//printf("Adding to list[%d] value %f \n", index, x);
+					list[index] = x;
 					//Reset values.
 					x = 0;
-					index++; 
+					index++;
 					comma = false;
 					number_is_negative = false;
 					comma_counter = 0;
@@ -58,7 +56,7 @@ float* parseFile(char* path, int& n, int& dimensions) {
 			else if (isID) { // Is the number the ID. 
 				//Id is omitted for now.
 			}
-			else if(isdigit(ch)){ //Is it a number. 
+			else if (isdigit(ch)) { //Is it a number. 
 				if (comma) { //If comma, than compute correct digit. 
 					double digit = (ch - 48.0) / pow(10, comma_counter);
 					x = x + digit;
@@ -71,9 +69,9 @@ float* parseFile(char* path, int& n, int& dimensions) {
 			else if (ch == 45) { //Set negative flag. 
 				number_is_negative = true;
 			}
-			else if(ch == 46){ //Set comma flag. 
-				comma = true; 
-				comma_counter++; 
+			else if (ch == 46) { //Set comma flag. 
+				comma = true;
+				comma_counter++;
 			}
 			ch = fgetc(fp); //Get next character. 
 		}
@@ -81,7 +79,7 @@ float* parseFile(char* path, int& n, int& dimensions) {
 		x = 0;
 		comma = false;
 		comma_counter = 0;
-		isID = true; 
+		isID = true;
 	}
 
 	printf("Done in parsing loop");

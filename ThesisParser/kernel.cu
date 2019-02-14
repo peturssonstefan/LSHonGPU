@@ -6,15 +6,11 @@
 #include <stdio.h>
 #include <string>
 #include <iostream>
-#include <direct.h> //windows specific file. 
-//#include <unistd.h> //linux specific file. 
 #include "gloveparser.cuh"
 #include <thrust/host_vector.h>
 #include "linearScan.cuh"
 #include <thrust/device_vector.h>
 #include <thrust/copy.h>
-#define GetCurrentDir _getcwd //Windows version. 
-//#define GetCurrentDir getcwd //Linux version. 
 #define SIZE 1024
 int getDimensions(); 
 char* getDataFile();
@@ -31,49 +27,24 @@ int main(int argc, char **argv){
 
 	char* filepath_data = argv[1];
 	char* filepath_queries = argv[2];
-	char* dim = argv[3];
-	char* _k = argv[4];
-	int dimensions = atoi(dim);
+	//char* dim = argv[3];
+	char* _k = argv[3];
+	//int dimensions = atoi(dim);
 	int k = atoi(_k);
+
+	int n = 0; 
+	int dimensions = 0; 
+
+
 	printf("Will process data file: %s \n", filepath_data);
 	printf("Will process query file: %s \n", filepath_queries);
 	printf("Using dimenions: %d \n", dimensions);
+	
+	float* list = parseFile(filepath_data, n, dimensions); 
 
-	thrust::device_vector<Point> data = parseFile(filepath_data, dimensions);
-	thrust::device_vector<Point> queries = parseFile(filepath_queries, dimensions);
-
-	printf("Done with parsing files.. \n");
-	scan(data, queries, k, dimensions); 
-
-	/*thrust::device_vector<Point> data_device(data.size()); 
-	thrust::copy(data.begin(), data.end(), data_device.begin());
-*/
-
-	printf("\n Done with parsing. Starting GPU Test. \n");
-
-	////GPU test for server. 
-	//const int arraySize = 5;
-	//const int a[arraySize] = { 1, 2, 3, 4, 5 };
-	//const int b[arraySize] = { 10, 20, 30, 40, 50 };
-	//int c[arraySize] = { 0 };
-
-	//// Add vectors in parallel.
-	//cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-	//if (cudaStatus != cudaSuccess) {
-	//	fprintf(stderr, "addWithCuda failed!");
-	//	return 1;
-	//}
-
-	//printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-	//	c[0], c[1], c[2], c[3], c[4]);
-
-	//// cudaDeviceReset must be called before exiting in order for profiling and
-	//// tracing tools such as Nsight and Visual Profiler to show complete traces.
-	//cudaStatus = cudaDeviceReset();
-	//if (cudaStatus != cudaSuccess) {
-	//	fprintf(stderr, "cudaDeviceReset failed!");
-	//	return 1;
-	//}
+	for (int i = 0; i < 1000; i++) {
+		printf("list[%d] = %f \n", i, list[i]);
+	}
 
 	return 0;
 
