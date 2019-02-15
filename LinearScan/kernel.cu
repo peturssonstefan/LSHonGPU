@@ -19,8 +19,8 @@ int calculateThreads(int querypoints) {
 }
 
 int calculateBlocks(int querypoints) {
-	if (querypoints < MAX_THREADS) return 1; 
-	else return ceil(querypoints / MAX_THREADS); 
+	if (querypoints < MAX_THREADS) return 1;
+	else return ceil(querypoints / (float)MAX_THREADS); 
 }
 
 __global__
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 
 	int test = 1024; 
 
-	add << <10, test>> > (N_data, N_query, d, k, dev_x, dev_y, dev_z);
+	add << <blocks, threads >> > (N_data, N_query, d, k, dev_x, dev_y, dev_z);
 
 
 
