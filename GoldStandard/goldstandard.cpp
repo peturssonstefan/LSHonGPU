@@ -149,6 +149,7 @@ void computeGoldStandard(goldstandard settings){
             point p = settings.data[pi];
             p.cachedDistance =  innerProduct(q,p);
             //TODO fix this - probaly need pointers to the points 
+            //cout << "Q: " << qi << " P: " << p.id << " - " << p.cachedDistance << endl;
             settings.data[pi] = p;
         }
 
