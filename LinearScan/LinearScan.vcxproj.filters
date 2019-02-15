@@ -10,10 +10,16 @@
     <Filter Include="parsing">
       <UniqueIdentifier>{2d72081c-1642-4527-850d-3e41896b1b3a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="models">
+      <UniqueIdentifier>{ad60ec9b-32ec-4ed7-9e73-1a76d9a65605}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gloveparser.cuh">
       <Filter>parsing</Filter>
+    </ClInclude>
+    <ClInclude Include="point.h">
+      <Filter>models</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
