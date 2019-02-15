@@ -123,12 +123,8 @@ int main(int argc, char **argv)
 	int blocks = calculateBlocks(N_query); 
 	printf("Threads: %d\n", threads); 
 	printf("Blocks: %d\n", blocks);
-
-	int test = 1024; 
-
+	before = clock();
 	add << <blocks, threads >> > (N_data, N_query, d, k, dev_x, dev_y, dev_z);
-
-
 
 	cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
@@ -141,6 +137,9 @@ int main(int argc, char **argv)
 		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
 		return -1;
 	}
+
+	time_lapsed = clock() - before;
+	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	cudaStatus = cudaMemcpy(z, dev_z, k * N_query * sizeof(Point), cudaMemcpyDeviceToHost);
 
