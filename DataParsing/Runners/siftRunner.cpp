@@ -20,12 +20,8 @@ void SiftRunner::run(int argc, char** args){
 
     SiftParser parser;
 
-    int id;
-
-    vector<Point> data = parser.parse(inputFileData, &id);
-    vector<Point> queires = parser.parse(inputFileQueries, &id);
-
-    cout << id << endl;
+    vector<Point> data = parser.parse(inputFileData);
+    vector<Point> queires = parser.parse(inputFileQueries);
 
     // Write formated
     Writer writer;

@@ -15,8 +15,9 @@ void Writer::writeData(vector<Point> data, char* filename){
     outFile << data.size() << endl;
     outFile << data[0].data.size() << endl;
 
+    int ID = 0;
     for(Point p : data){
-        outFile << p.ID << " ";
+        outFile << ID++ << " ";
 
         for(float x : p.data){
             outFile << x << " ";

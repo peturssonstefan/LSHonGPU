@@ -29,8 +29,6 @@ vector<Point> GloveParser::parse(Settings settings){
             p.data.push_back(x);
         }
 
-        p.ID = i;
-
         data.push_back(p);
     }
 

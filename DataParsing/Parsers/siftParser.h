@@ -5,5 +5,5 @@
 class SiftParser
 {
 public:
-    vector<Point> parse(char* fileName, int* i);
+    vector<Point> parse(char* fileName);
 };

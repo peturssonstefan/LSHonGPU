@@ -5,7 +5,7 @@
 
 using namespace std;
 
-vector<Point> SiftParser::parse(char* fileName, int* id){
+vector<Point> SiftParser::parse(char* fileName){
     FILE *input = fopen(fileName, "rb");
     vector<Point> dataset;
     while(true) {
@@ -17,7 +17,6 @@ vector<Point> SiftParser::parse(char* fileName, int* id){
         vector<float> current_row(d);
         fread(&current_row[0], sizeof(float), d, input);
         Point p;
-        p.ID = (*id)++;
         p.data = current_row;
         
         dataset.push_back(p);
