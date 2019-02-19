@@ -22,7 +22,6 @@ float* parseFile(char* path, int& n, int& dimensions) {
 	bool comma = false; //Whether a comma has been registered yet. 
 	bool isID = true;
 	float x = 0;
-	printf("Parsing file.\n");
 
 	char _n[256], d[256];
 	fgets(_n, sizeof(_n), fp);
@@ -81,8 +80,6 @@ float* parseFile(char* path, int& n, int& dimensions) {
 		comma_counter = 0;
 		isID = true;
 	}
-
-	printf("Done in parsing loop");
 
 	fclose(fp);
 	return list;

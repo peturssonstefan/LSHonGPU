@@ -5,6 +5,8 @@
     <CudaCompile Include="gloveparser.cu">
       <Filter>parsing</Filter>
     </CudaCompile>
+    <CudaCompile Include="simpleLinearScan.cu" />
+    <CudaCompile Include="optimizedLinearScan.cu" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="parsing">
@@ -21,5 +23,7 @@
     <ClInclude Include="point.h">
       <Filter>models</Filter>
     </ClInclude>
+    <ClInclude Include="simpleLinearScan.cuh" />
+    <ClInclude Include="optimizedLinearScan.cuh" />
   </ItemGroup>
 </Project>

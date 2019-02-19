@@ -81,6 +81,8 @@
   <ItemGroup>
     <CudaCompile Include="gloveparser.cu" />
     <CudaCompile Include="kernel.cu" />
+    <CudaCompile Include="optimizedLinearScan.cu" />
+    <CudaCompile Include="simpleLinearScan.cu" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ThesisParser\ThesisParser.vcxproj">
@@ -89,7 +91,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gloveparser.cuh" />
+    <ClInclude Include="optimizedLinearScan.cuh" />
     <ClInclude Include="point.h" />
+    <ClInclude Include="simpleLinearScan.cuh" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
