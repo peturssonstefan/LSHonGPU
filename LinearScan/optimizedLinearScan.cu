@@ -10,6 +10,8 @@
 
 #define FULL_MASK 0xffffffff
 
+const int MAX_K = 10; 
+
 template <typename T>
 inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = warpSize) {
 	//static assert(sizeof(T*) == sizeof(long long), "pointer size incorrect"); 
@@ -19,7 +21,8 @@ inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = 
 
 __inline__ __device__
 Point* warpReduceArrays(Point* val, int k) {
-	Point merged[100];
+	Point merged[MAX_K];
+#pragma unroll
 	for (int offset = 16; offset > 0; offset /= 2) {
 		Point* tmpVal = shuffle_down(val, offset);
 		int i = 0;
@@ -57,9 +60,10 @@ Point* blockReduce(Point* val, int k) {
 
 	__syncthreads();
 
-	static __shared__ Point maxArray[10];
+	static __shared__ Point maxArray[MAX_K];
 
-	for (int i = 0; i < 10; i++) {
+#pragma unroll
+	for (int i = 0; i < MAX_K; i++) {
 		Point p;
 		p.ID = -1;
 		p.distance = 2.0f;
@@ -68,7 +72,6 @@ Point* blockReduce(Point* val, int k) {
 
 
 	val = (threadIdx.x < blockDim.x / warpSize) ? shared[threadIdx.x] : maxArray;
-
 
 	if (warpId == 0) {
 		val = warpReduceArrays(val, k);
@@ -82,6 +85,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x; 
 	int queryIndex = blockIdx.x * dimensions;
 	int tIndex = threadId * k;
+#pragma unroll
 	for (int i = threadIdx.x; i < nData; i += blockDim.x) {
 		float dotProduct = 0;
 		float magnitude_query = 0.0;
@@ -102,6 +106,10 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		currentPoint.distance = angular_distance;
 
 		Point swapPoint;
+		if (i < k) {
+			threadQueue[tIndex + i] = currentPoint; 
+		}
+#pragma unroll
 		for (int j = 0; (j < k && j <= i); j++) { // simple sorting.
 			if (threadQueue[tIndex + j].distance > currentPoint.distance) {
 				swapPoint = threadQueue[tIndex + j];
@@ -111,6 +119,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		}
 	}
 
+	
 	Point* kNearest = blockReduce(&threadQueue[tIndex], k);
 
 	if (threadIdx.x == 0) {
