@@ -16,7 +16,11 @@ template <typename T>
 inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = warpSize) {
 	//static assert(sizeof(T*) == sizeof(long long), "pointer size incorrect"); 
 	long long v = (long long)val;
+#if CUDA_VERSION >= 9000
 	return (T*)__shfl_down_sync(FULL_MASK, v, delta);
+#else
+	return (T*)__shfl_down(v, delta);
+#endif
 }
 
 __inline__ __device__
@@ -208,12 +212,12 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 		throw "Error in optimizedLinearScan run.";
 	}
 
-	/*for (int queryId = 0; queryId < blocks; queryId++) {
+	for (int queryId = 0; queryId < 5; queryId++) {
 		printf("query: %d \n", queryId);
 		for (int i = 0; i < k; i++) {
 			printf("Id: %d - %f\n", resultArray[queryId * k + i].ID, resultArray[queryId * k + i].distance);
 		}
-	}*/
+	}
 
 	printf("Done. \n");
 
