@@ -26,12 +26,12 @@ inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = 
 __inline__ __device__
 Point* warpReduceArrays(Point* val, int k) {
 	Point merged[MAX_K];
-#pragma unroll
 	for (int offset = 16; offset > 0; offset /= 2) {
 		Point* tmpVal = shuffle_down(val, offset);
 		int i = 0;
 		int j = 0;
 		//printf("Val: %d \n", tmpVal[j]); 
+
 		for (int x = 0; x < k; x++) {
 			if (val[i].distance <= tmpVal[j].distance) {
 				merged[x] = val[i++];
@@ -64,8 +64,8 @@ Point* blockReduce(Point* val, int k) {
 
 	__syncthreads();
 
-	static __shared__ Point maxArray[MAX_K];
-
+	//static __shared__ Point maxArray[MAX_K];
+	static Point maxArray[MAX_K];
 #pragma unroll
 	for (int i = 0; i < MAX_K; i++) {
 		Point p;
@@ -86,21 +86,37 @@ Point* blockReduce(Point* val, int k) {
 
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* threadQueue, Point* result) {
+	Point candidateItems[MAX_K]; 
+
+#pragma unroll
+	for (int i = 0; i < MAX_K; i++) {
+		Point p; 
+		p.distance = 2.0f; 
+		p.ID = -1;
+	}
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x; 
 	int queryIndex = blockIdx.x * dimensions;
 	int tIndex = threadId * k;
+
+	float magnitude_query = 0.0;
+
 #pragma unroll
+	for (int j = 0; j < dimensions; j++) {
+		magnitude_query += queryPoints[queryIndex + j] * queryPoints[queryIndex + j];
+	}
+
+	magnitude_query = sqrt(magnitude_query);
+
 	for (int i = threadIdx.x; i < nData; i += blockDim.x) {
 		float dotProduct = 0;
-		float magnitude_query = 0.0;
 		float magnitude_data = 0.0;
+
+#pragma unroll
 		for (int j = 0; j < dimensions; j++) {
 			dotProduct += queryPoints[queryIndex + j] * dataPoints[dimensions*i + j];
-			magnitude_query += queryPoints[queryIndex + j] * queryPoints[queryIndex + j];
 			magnitude_data += dataPoints[dimensions*i + j] * dataPoints[dimensions*i + j];
 		}
-
-		magnitude_query = sqrt(magnitude_query);
+		
 		magnitude_data = sqrt(magnitude_data);
 		float angular_distance = -(dotProduct / (magnitude_query * magnitude_data));
 
@@ -110,23 +126,28 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		currentPoint.distance = angular_distance;
 
 		Point swapPoint;
-		if (i < k) {
-			threadQueue[tIndex + i] = currentPoint; 
-		}
-#pragma unroll
+
 		for (int j = 0; (j < k && j <= i); j++) { // simple sorting.
-			if (threadQueue[tIndex + j].distance > currentPoint.distance) {
-				swapPoint = threadQueue[tIndex + j];
-				threadQueue[tIndex + j] = currentPoint;
+			if (candidateItems[j].distance > currentPoint.distance) {
+				swapPoint = candidateItems[j];
+				candidateItems[j] = currentPoint;
 				currentPoint = swapPoint;
 			}
 		}
+	}
+
+
+#pragma unroll
+	for (int i = 0; i < k; i++) {
+		threadQueue[tIndex + i] = candidateItems[i]; 
 	}
 
 	
 	Point* kNearest = blockReduce(&threadQueue[tIndex], k);
 
 	if (threadIdx.x == 0) {
+
+#pragma unroll
 		for (int i = 0; i < k; i++) {
 			result[blockIdx.x * k + i] = kNearest[i];
 		}
