@@ -12,6 +12,7 @@
 #include <time.h>
 #include "simpleLinearScan.cuh"
 #include "optimizedLinearScan.cuh"
+#include "simHash.cuh"
 
 int main(int argc, char **argv)
 {
@@ -38,12 +39,17 @@ int main(int argc, char **argv)
 	// TODO args for selecting implementation
 	//Point* resDebug = runSimpleLinearScan(k, d, N_query, N_data, data, queries);
 	//printf("Done with simple scan \n \n"); 
-	Point* res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
+	//Point* res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
 
+	Point* res = runSimHashLinearScan(k, d, 64, N_query, N_data, data, queries);
 
+	printf("Starting to free \n"); 
 	free(queries);
 	free(data);
+	printf("Success. Program exiting. \n");
 	free(res);	
 	//free(resDebug);
+	return 0;
+
 }
 

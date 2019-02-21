@@ -7,6 +7,9 @@
     </CudaCompile>
     <CudaCompile Include="simpleLinearScan.cu" />
     <CudaCompile Include="optimizedLinearScan.cu" />
+    <CudaCompile Include="simHash.cu">
+      <Filter>simhash</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="parsing">
@@ -14,6 +17,9 @@
     </Filter>
     <Filter Include="models">
       <UniqueIdentifier>{ad60ec9b-32ec-4ed7-9e73-1a76d9a65605}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="simhash">
+      <UniqueIdentifier>{6b1c1fb7-ed03-4194-9969-7cfb60b010f3}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -25,5 +31,8 @@
     </ClInclude>
     <ClInclude Include="simpleLinearScan.cuh" />
     <ClInclude Include="optimizedLinearScan.cuh" />
+    <ClInclude Include="simHash.cuh">
+      <Filter>simhash</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

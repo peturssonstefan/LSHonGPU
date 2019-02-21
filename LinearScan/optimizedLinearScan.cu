@@ -2,7 +2,6 @@
 #include "device_launch_parameters.h"
 #include<math.h>
 #include<iostream>
-#include "gloveparser.cuh"
 #include <stdio.h>
 #include "point.h"
 #include <time.h>
