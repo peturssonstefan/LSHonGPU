@@ -35,17 +35,11 @@ void add(int n_data, int n_query, int dimensions, int k, float *queryPoints, flo
 		//#pragma unroll; 
 		for (int i = 0; i < n_data; i++) {
 			float dotProduct = 0;
-			float magnitude_query = 0.0;
-			float magnitude_data = 0.0;
-			for (int j = 0; j < dimensions; j++) {
+			/*for (int j = 0; j < dimensions; j++) {
 				dotProduct += queryPoints[index + j] * dataPoints[dimensions*i + j];
-				magnitude_query += queryPoints[index + j] * queryPoints[index + j];
-				magnitude_data += dataPoints[dimensions*i + j] * dataPoints[dimensions*i + j];
-			}
+			}*/
 
-			magnitude_query = sqrt(magnitude_query);
-			magnitude_data = sqrt(magnitude_data);
-			float angular_distance = -(dotProduct / (magnitude_query * magnitude_data));
+			float angular_distance = -(i);
 
 			Point currentPoint;
 			currentPoint.ID = i;
