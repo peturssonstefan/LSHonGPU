@@ -7,6 +7,8 @@
 #include <cuda.h>
 #include <bitset>
 #include <math.h>
+#include "constants.cuh"
+#include "hammingDistanceScanner.cuh"
 
 #define CUDA_CHECK_RETURN(value){ \
 	cudaError_t _m_cudaStat = value; \
@@ -16,15 +18,8 @@
 	} \
 }\
 
-void checkError(cudaError_t cudaStatus, int line) {
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "Error: %s \n Error Code %d \n Error is at line %d, in file %s \n", cudaGetErrorString(cudaStatus), cudaStatus, line, __FILE__);
-		throw "Error in optimizedLinearScan run.";
-	}
-}
-
 __global__
-void sketch(float* data, float* randomVectors, int size, int dimensions, int bits, int sketchDim, unsigned long* sketchedData) {
+void sketch(float* data, float* randomVectors, int size, int dimensions, int sketchDim, unsigned long* sketchedData) {
 	int threadId = blockDim.x * blockIdx.x + threadIdx.x;
 	int numberOfThreads = blockDim.x * gridDim.x;
 
@@ -33,9 +28,9 @@ void sketch(float* data, float* randomVectors, int size, int dimensions, int bit
 		int sketchIndex = i * sketchDim;
 		for (int sketchBlockId = 0; sketchBlockId < sketchDim; sketchBlockId++) {
 			long sketch = 0;
-			for (int bitIndex = 0; bitIndex < bits; bitIndex++) {
+			for (int bitIndex = 0; bitIndex < SKETCH_COMP_SIZE; bitIndex++) {
 				float dot = 0;
-				int randomVectorIndex = bits * dimensions * sketchBlockId + bitIndex * dimensions; 
+				int randomVectorIndex = SKETCH_COMP_SIZE * dimensions * sketchBlockId + bitIndex * dimensions;
 				for (int dimIndex = 0; dimIndex < dimensions; dimIndex++) {
 					//printf("Tid[%d]: D - R: %d - %d\n", threadId, pointIndex + dimIndex, randomVectorIndex + dimIndex);
 					dot += data[pointIndex + dimIndex] * randomVectors[randomVectorIndex + dimIndex]; 
@@ -49,6 +44,12 @@ void sketch(float* data, float* randomVectors, int size, int dimensions, int bit
 		}
 	}
 
+}
+
+__global__
+void scan(unsigned long * data, unsigned long * queries, int sketchDim, int N_data, int N_query, int k, Point* threadQueue, Point* result) {
+	int threadQueueIndex = (blockDim.x * blockIdx.x + threadIdx.x) * k; 
+	scanHammingDistance(data, queries, sketchDim, N_data, N_query, k, &threadQueue[threadQueueIndex], result); 
 }
 
 float* generateRandomVectors(int N, bool randomSeed = false) {
@@ -65,21 +66,24 @@ float* generateRandomVectors(int N, bool randomSeed = false) {
 	for (int i = 0; i < N; ++i)
 	{
 		vectors[i] = distribution(randomSeed ? eng : generator);
-		std::cout << vectors[i] << ",";
+		//std::cout << vectors[i] << ",";
 	}
-	std::cout << std::endl; 
+	//std::cout << std::endl; 
 	return vectors;
 }
 
-Point* runSimHashLinearScan(int k, int d, int bits, int N_query, int N_data, float* data, float* queries) {
+Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
 
+	int numberOfThreads = 1024; 
+	int numberOfBlocks = N_query;
+	int bits = sketchedDim * SKETCH_COMP_SIZE;
 	int randomVectorsSize = d * bits; 
 	int dataSize = d * N_data; 
 	int querySize = d * N_query;
-	int sketchedDim = std::ceil(bits / 64.0f); 
-	printf("sketchDim: %d \n", sketchedDim);
 	int sketchedDataSize = N_data * sketchedDim; 
 	int sketchedQuerySize = N_query * sketchedDim;
+	int threadQueueSize = numberOfBlocks * numberOfThreads * k; 
+	int resultSize = N_query * k; 
 	float* randomVectors = generateRandomVectors(randomVectorsSize);
 	
 	//Setup random vector array.
@@ -109,35 +113,38 @@ Point* runSimHashLinearScan(int k, int d, int bits, int N_query, int N_data, flo
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_sketchedQuery, sketchedQuerySize * sizeof(unsigned long)));
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_sketchedQuery, sketchedQuery, sketchedQuerySize * sizeof(unsigned long), cudaMemcpyHostToDevice));
 
-	sketch << <1,2>> > (dev_data, dev_randomVectors, dataSize, d, bits, sketchedDim, dev_sketchedData);
-	sketch << <1,2>> > (dev_queries, dev_randomVectors, N_query, d, bits, sketchedDim, dev_sketchedQuery);
-
+	sketch << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_randomVectors, dataSize, d, sketchedDim, dev_sketchedData);
+	sketch << <numberOfBlocks, numberOfThreads >> > (dev_queries, dev_randomVectors, N_query, d, sketchedDim, dev_sketchedQuery);
 
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 	CUDA_CHECK_RETURN(cudaMemcpy(sketchedData, dev_sketchedData, sketchedDataSize * sizeof(long), cudaMemcpyDeviceToHost));
 	CUDA_CHECK_RETURN(cudaMemcpy(sketchedQuery, dev_sketchedQuery, sketchedQuerySize * sizeof(unsigned long), cudaMemcpyDeviceToHost));
+
+	//Setup Thread Queue Array 
+	Point* threadQueue = (Point*)malloc(threadQueueSize * sizeof(Point));
+	Point* dev_threadQueue = 0;
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_threadQueue, threadQueueSize * sizeof(Point)));
+	CUDA_CHECK_RETURN(cudaMemcpy(dev_threadQueue, threadQueue, threadQueueSize * sizeof(Point), cudaMemcpyHostToDevice));
+
+	//Setup Result Array 
+	Point* results = (Point*)malloc(resultSize * sizeof(Point));
+	Point* dev_results = 0;
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_results, resultSize * sizeof(Point)));
+	CUDA_CHECK_RETURN(cudaMemcpy(dev_results, results, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
+
+	scan << <numberOfBlocks, numberOfThreads >> > (dev_sketchedData, dev_sketchedQuery, sketchedDim, N_data, N_query, k, dev_threadQueue, dev_results);
+	
+	
+	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+	CUDA_CHECK_RETURN(cudaMemcpy(results, dev_results, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
+
+
+	//Close
+	CUDA_CHECK_RETURN(cudaFree(dev_sketchedData));
+	CUDA_CHECK_RETURN(cudaFree(dev_sketchedQuery));
+	CUDA_CHECK_RETURN(cudaFree(dev_threadQueue));
+	CUDA_CHECK_RETURN(cudaFree(dev_results));
 	CUDA_CHECK_RETURN(cudaDeviceReset());
 
-
-	for (int i = 0; i < 10; i++) {
-		/*std::bitset<64> bitset(sketchedQuery[i]);
-
-		std::cout << bitset << std::endl; */
-		for (int j = 0; j < 64; j++) {
-
-			unsigned long bit = (sketchedQuery[i] >> j) & 1UL; 
-			printf("%d", bit); 
-		}
-		printf(" --- %lu    query\n", sketchedQuery[i]);
-		for (int j = 0; j < 64; j++) {
-
-			unsigned long bit = (sketchedData[i] >> j) & 1UL;
-			printf("%d", bit);
-		}
-		printf(" --- %lu    data\n", sketchedData[i]);
-	}
-
-
-
-	return nullptr;
+	return results;
 }

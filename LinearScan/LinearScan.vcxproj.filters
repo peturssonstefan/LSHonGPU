@@ -5,10 +5,14 @@
     <CudaCompile Include="gloveparser.cu">
       <Filter>parsing</Filter>
     </CudaCompile>
-    <CudaCompile Include="simpleLinearScan.cu" />
-    <CudaCompile Include="optimizedLinearScan.cu" />
     <CudaCompile Include="simHash.cu">
       <Filter>simhash</Filter>
+    </CudaCompile>
+    <CudaCompile Include="optimizedLinearScan.cu">
+      <Filter>scanners</Filter>
+    </CudaCompile>
+    <CudaCompile Include="simpleLinearScan.cu">
+      <Filter>scanners</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>
@@ -21,6 +25,12 @@
     <Filter Include="simhash">
       <UniqueIdentifier>{6b1c1fb7-ed03-4194-9969-7cfb60b010f3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="scanners">
+      <UniqueIdentifier>{98374c82-47f1-4177-81ab-4f397677690b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{b3ecdd04-7680-4a27-ac42-aab61619440c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gloveparser.cuh">
@@ -29,10 +39,27 @@
     <ClInclude Include="point.h">
       <Filter>models</Filter>
     </ClInclude>
-    <ClInclude Include="simpleLinearScan.cuh" />
-    <ClInclude Include="optimizedLinearScan.cuh" />
     <ClInclude Include="simHash.cuh">
       <Filter>simhash</Filter>
     </ClInclude>
+    <ClInclude Include="resultWriter.h" />
+    <ClInclude Include="optimizedLinearScan.cuh">
+      <Filter>scanners</Filter>
+    </ClInclude>
+    <ClInclude Include="simpleLinearScan.cuh">
+      <Filter>scanners</Filter>
+    </ClInclude>
+    <ClInclude Include="hammingDistanceScanner.cuh">
+      <Filter>scanners</Filter>
+    </ClInclude>
+    <ClInclude Include="shuffleUtils.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="constants.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="resultWriter.cpp" />
   </ItemGroup>
 </Project>

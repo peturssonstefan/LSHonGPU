@@ -76,6 +76,7 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>../../</Include>
+      <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -91,11 +92,18 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="constants.cuh" />
     <ClInclude Include="gloveparser.cuh" />
+    <ClInclude Include="hammingDistanceScanner.cuh" />
     <ClInclude Include="optimizedLinearScan.cuh" />
     <ClInclude Include="point.h" />
+    <ClInclude Include="resultWriter.h" />
+    <ClInclude Include="shuffleUtils.cuh" />
     <ClInclude Include="simHash.cuh" />
     <ClInclude Include="simpleLinearScan.cuh" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="resultWriter.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

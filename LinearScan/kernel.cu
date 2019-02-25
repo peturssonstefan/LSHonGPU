@@ -13,6 +13,7 @@
 #include "simpleLinearScan.cuh"
 #include "optimizedLinearScan.cuh"
 #include "simHash.cuh"
+#include "resultWriter.h"
 
 int main(int argc, char **argv)
 {
@@ -41,7 +42,11 @@ int main(int argc, char **argv)
 	//printf("Done with simple scan \n \n"); 
 	//Point* res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
 
-	Point* res = runSimHashLinearScan(k, d, 64, N_query, N_data, data, queries);
+
+	Point* res = runSimHashLinearScan(k, d, 6, N_query, N_data, data, queries);
+
+	writeResult(res, k, N_query); 
+	//writeOnlyIDs(res, k, N_query); 
 
 	printf("Starting to free \n"); 
 	free(queries);

@@ -3,90 +3,17 @@
 #include<math.h>
 #include<iostream>
 #include <stdio.h>
+#include <queue>
 #include "point.h"
 #include <time.h>
 #include <algorithm>
+#include "shuffleUtils.cuh"
 
-#define FULL_MASK 0xffffffff
-
-const int MAX_K = 10; 
-
-template <typename T>
-inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = warpSize) {
-	//static assert(sizeof(T*) == sizeof(long long), "pointer size incorrect"); 
-	long long v = (long long)val;
-#if CUDA_VERSION >= 9000
-	return (T*)__shfl_down_sync(FULL_MASK, v, delta);
-#else
-	return (T*)__shfl_down(v, delta);
-#endif
-}
-
-__inline__ __device__
-Point* warpReduceArrays(Point* val, int k) {
-	Point merged[MAX_K];
-	for (int offset = 16; offset > 0; offset /= 2) {
-		Point* tmpVal = shuffle_down(val, offset);
-		int i = 0;
-		int j = 0;
-		//printf("Val: %d \n", tmpVal[j]); 
-
-		for (int x = 0; x < k; x++) {
-			if (val[i].distance <= tmpVal[j].distance) {
-				merged[x] = val[i++];
-			}
-			else if (val[i].distance > tmpVal[j].distance) {
-				merged[x] = tmpVal[j++];
-			}
-		}
-
-		for (int i = 0; i < k; i++) {
-			val[i] = merged[i];
-		}
-	}
-
-	return val;
-}
-
-__inline__ __device__
-Point* blockReduce(Point* val, int k) {
-	__shared__ Point* shared[32];
-
-	int lane = threadIdx.x % warpSize;
-	int warpId = threadIdx.x / warpSize;
-
-	val = warpReduceArrays(val, k);
-
-	if (lane == 0) {
-		shared[warpId] = val;
-	}
-
-	__syncthreads();
-
-	//static __shared__ Point maxArray[MAX_K];
-	static Point maxArray[MAX_K];
-#pragma unroll
-	for (int i = 0; i < MAX_K; i++) {
-		Point p;
-		p.ID = -1;
-		p.distance = 2.0f;
-		maxArray[i] = p;
-	}
-
-
-	val = (threadIdx.x < blockDim.x / warpSize) ? shared[threadIdx.x] : maxArray;
-
-	if (warpId == 0) {
-		val = warpReduceArrays(val, k);
-	}
-
-	return val;
-}
 
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* threadQueue, Point* result) {
 	Point candidateItems[MAX_K]; 
-
+	
 #pragma unroll
 	for (int i = 0; i < MAX_K; i++) {
 		Point p; 
@@ -133,16 +60,16 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 				currentPoint = swapPoint;
 			}
 		}
-	}
 
+		
+	}
 
 #pragma unroll
 	for (int i = 0; i < k; i++) {
 		threadQueue[tIndex + i] = candidateItems[i]; 
 	}
 
-	
-	Point* kNearest = blockReduce(&threadQueue[tIndex], k);
+	Point* kNearest = blockReduce(&threadQueue[tIndex], k, 2.0f);
 
 	if (threadIdx.x == 0) {
 
@@ -164,7 +91,7 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 		throw "Error in simpleLinearScan run.";
 	}
 	int threads = 1024;
-	int blocks = 10000;
+	int blocks = 10000; //TODO, set blocks equal to query points.
 
 	// Set up result array
 	int resultSize = blocks * k; 
@@ -173,16 +100,8 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 	// Set up thread queue array
 	int threadQueueSize = threads * blocks * k;
 	Point* threadQueueArray = (Point*)malloc(threadQueueSize * sizeof(Point));
-
-	// Set default data into thread queues
-	for (int i = 0; i < threadQueueSize; i++) {
-		Point p;
-		p.ID = -1;
-		p.distance = 2.0f; //fill thread queue array with default max value - given sim [-1,1]
-
-		threadQueueArray[i] = p;
-	}
-
+	
+	
 	// Set up cuda device arrays
 
 	// queries
@@ -231,15 +150,6 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 		fprintf(stderr, "cuda memcpy from device to host returned error code %d \n", cudaStatus);
 		throw "Error in optimizedLinearScan run.";
 	}
-
-	for (int queryId = 0; queryId < 5; queryId++) {
-		printf("query: %d \n", queryId);
-		for (int i = 0; i < k; i++) {
-			printf("Id: %d - %f\n", resultArray[queryId * k + i].ID, resultArray[queryId * k + i].distance);
-		}
-	}
-
-	printf("Done. \n");
 
 	//Free memory... 
 	cudaFree(dev_query_points);
