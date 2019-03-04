@@ -7,6 +7,7 @@
 #include <cuda.h>
 #include <bitset>
 #include <math.h>
+#include <time.h>
 #include "constants.cuh"
 #include "hammingDistanceScanner.cuh"
 
@@ -32,30 +33,23 @@ void sketch(float* data, float* randomVectors, int size, int dimensions, int ske
 				float dot = 0;
 				int randomVectorIndex = SKETCH_COMP_SIZE * dimensions * sketchBlockId + bitIndex * dimensions;
 				for (int dimIndex = 0; dimIndex < dimensions; dimIndex++) {
-					//printf("Tid[%d]: D - R: %d - %d\n", threadId, pointIndex + dimIndex, randomVectorIndex + dimIndex);
-					dot += data[pointIndex + dimIndex] * randomVectors[randomVectorIndex + dimIndex]; 
+					dot += data[pointIndex + dimIndex] * randomVectors[randomVectorIndex + dimIndex];
 				}
-
 				unsigned long bit = dot >= 0 ? 1 : 0;
 				sketch |= bit << bitIndex;
 				
 			}
+
 			sketchedData[sketchIndex + sketchBlockId] = sketch;
 		}
 	}
 
 }
 
-__global__
-void scan(unsigned long * data, unsigned long * queries, int sketchDim, int N_data, int N_query, int k, Point* threadQueue, Point* result) {
-	int threadQueueIndex = (blockDim.x * blockIdx.x + threadIdx.x) * k; 
-	scanHammingDistance(data, queries, sketchDim, N_data, N_query, k, &threadQueue[threadQueueIndex], result); 
-}
-
 float* generateRandomVectors(int N, bool randomSeed = false) {
 
 	// same seed 
-	static float* vectors = (float*)malloc(N * sizeof(float)); 
+	static float* vectors = (float*)malloc(N * sizeof(float));
 	std::default_random_engine generator;
 	// different seeds
 	std::random_device rd;  // obtain a random number from hardware
@@ -72,20 +66,28 @@ float* generateRandomVectors(int N, bool randomSeed = false) {
 	return vectors;
 }
 
+__global__
+void scan(unsigned long * data, unsigned long * queries, int sketchDim, int N_data, int N_query, int k, Point* threadQueue, Point* result) {
+	int threadQueueIndex = (blockDim.x * blockIdx.x + threadIdx.x) * k; 
+	scanHammingDistance(data, queries, sketchDim, N_data, N_query, k, &threadQueue[threadQueueIndex], result); 
+}
+
+ 
+
 Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
 
 	int numberOfThreads = 1024; 
-	int numberOfBlocks = N_query;
+	int numberOfBlocks = 3;
 	int bits = sketchedDim * SKETCH_COMP_SIZE;
 	int randomVectorsSize = d * bits; 
 	int dataSize = d * N_data; 
 	int querySize = d * N_query;
 	int sketchedDataSize = N_data * sketchedDim; 
 	int sketchedQuerySize = N_query * sketchedDim;
-	int threadQueueSize = numberOfBlocks * numberOfThreads * k; 
+	int threadQueueSize = N_query * numberOfThreads * k; 
 	int resultSize = N_query * k; 
 	float* randomVectors = generateRandomVectors(randomVectorsSize);
-	
+	CUDA_CHECK_RETURN(cudaSetDevice(0));
 	//Setup random vector array.
 	float* dev_randomVectors = 0; 
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_randomVectors, randomVectorsSize * sizeof(float)));
@@ -112,11 +114,18 @@ Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_da
 	unsigned long* dev_sketchedQuery = 0;
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_sketchedQuery, sketchedQuerySize * sizeof(unsigned long)));
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_sketchedQuery, sketchedQuery, sketchedQuerySize * sizeof(unsigned long), cudaMemcpyHostToDevice));
-
-	sketch << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_randomVectors, dataSize, d, sketchedDim, dev_sketchedData);
-	sketch << <numberOfBlocks, numberOfThreads >> > (dev_queries, dev_randomVectors, N_query, d, sketchedDim, dev_sketchedQuery);
-
+	clock_t before = clock();
+	printf("Started hashing \n");
+	sketch << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_randomVectors, N_data, d, sketchedDim, dev_sketchedData);
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+	CUDA_CHECK_RETURN(cudaGetLastError());
+	printf("Done with first sketch \n");
+	sketch << <numberOfBlocks, numberOfThreads >> > (dev_queries, dev_randomVectors, N_query, d, sketchedDim, dev_sketchedQuery);
+	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+	CUDA_CHECK_RETURN(cudaGetLastError());
+	printf("Done sketching queries.\n");
+	clock_t time_lapsed = clock() - before;
+	printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 	CUDA_CHECK_RETURN(cudaMemcpy(sketchedData, dev_sketchedData, sketchedDataSize * sizeof(long), cudaMemcpyDeviceToHost));
 	CUDA_CHECK_RETURN(cudaMemcpy(sketchedQuery, dev_sketchedQuery, sketchedQuerySize * sizeof(unsigned long), cudaMemcpyDeviceToHost));
 
@@ -131,13 +140,13 @@ Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_da
 	Point* dev_results = 0;
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_results, resultSize * sizeof(Point)));
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_results, results, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
-
-	scan << <numberOfBlocks, numberOfThreads >> > (dev_sketchedData, dev_sketchedQuery, sketchedDim, N_data, N_query, k, dev_threadQueue, dev_results);
-	
-	
+	printf("Calculating Distance. \n");
+	before = clock();
+	scan << <N_query, numberOfThreads >> > (dev_sketchedData, dev_sketchedQuery, sketchedDim, N_data, N_query, k, dev_threadQueue, dev_results);
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+	time_lapsed = clock() - before;
+	printf("Time to calculate distance on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 	CUDA_CHECK_RETURN(cudaMemcpy(results, dev_results, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
-
 
 	//Close
 	CUDA_CHECK_RETURN(cudaFree(dev_sketchedData));

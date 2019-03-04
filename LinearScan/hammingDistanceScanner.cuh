@@ -41,7 +41,7 @@ void scanHammingDistance(unsigned long * data, unsigned long * queries, int sket
 		Point swapPoint;
 
 		for (int j = 0; (j < k && j <= i); j++) { // simple sorting.
-			if (candidateItems[j].distance > currentPoint.distance) {
+			if (currentPoint.distance < candidateItems[j].distance) {
 				swapPoint = candidateItems[j];
 				candidateItems[j] = currentPoint;
 				currentPoint = swapPoint;

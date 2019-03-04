@@ -55,24 +55,16 @@ def main():
     results = []
     for i in range(0,len(queryToResReal)):
         recall = 0 
-        mse = 0
-        for r,t in zip(queryToResReal[i],queryToResTest[i]):
-            if r[0] == t[0]:
-                recall += 1
-            distReal = r[1]
-            distTest = t[1]
-            error = distReal - distTest
-            mse += error * error 
-            varianceVariableReal = distReal - meanReal
-            varianceVariableTest = distTest - meanTest
-            varianceReal += varianceVariableReal * varianceVariableReal
-            varianceTest += varianceVariableTest * varianceVariableTest
+        for j in queryToResTest[i]:
+            for l in queryToResReal[i]: 
+                if j[0] == l[0]:
+                    recall += 1
         recall = recall / k
-        mse = mse / k
-        results.append((query,recall,mse))
+        print("Query " + str(i) + " has recall: " + str(recall))
+
+        results.append((query,recall))
         query += 1
         avgRecall += recall
-        avgMSE += mse
 
     avgRecall = avgRecall / n
     avgMSE = avgMSE / n
@@ -80,9 +72,6 @@ def main():
     varianceTest = varianceTest / n
 
     print("Average recall: " + str(avgRecall))
-    print("Average MSE: "+ str(avgMSE))
-    print("Distance variance with correct distances: " + str(varianceReal))
-    print("Distance variance with test distances: " + str(varianceTest))
 
 
 if __name__ == "__main__":

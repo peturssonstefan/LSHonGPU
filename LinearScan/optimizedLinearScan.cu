@@ -10,6 +10,15 @@
 #include "shuffleUtils.cuh"
 
 
+
+#define CUDA_CHECK_RETURN(value){ \
+	cudaError_t _m_cudaStat = value; \
+	if (_m_cudaStat != cudaSuccess) { \
+		fprintf(stderr, "Error: %s \n Error Code %d \n Error is at line %d, in file %s \n", cudaGetErrorString(_m_cudaStat), _m_cudaStat, __LINE__ , __FILE__); \
+		exit(-1); \
+	} \
+}\
+
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* threadQueue, Point* result) {
 	Point candidateItems[MAX_K]; 
@@ -61,7 +70,6 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 			}
 		}
 
-		
 	}
 
 #pragma unroll
@@ -84,12 +92,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries) {
 
-	cudaError_t cudaStatus;
-	cudaStatus = cudaSetDevice(0);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaSetDevice failed!  Is there a CUDA-capable GPU installed?");
-		throw "Error in simpleLinearScan run.";
-	}
+	CUDA_CHECK_RETURN(cudaSetDevice(0));
 	int threads = 1024;
 	int blocks = 10000; //TODO, set blocks equal to query points.
 
@@ -106,60 +109,44 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 
 	// queries
 	float* dev_query_points = 0;
-	cudaMalloc((void**)&dev_query_points, N_query * d * sizeof(float));
-	cudaMemcpy(dev_query_points, queries, N_query * d * sizeof(float), cudaMemcpyHostToDevice);
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_query_points, N_query * d * sizeof(float)));
+	CUDA_CHECK_RETURN(cudaMemcpy(dev_query_points, queries, N_query * d * sizeof(float), cudaMemcpyHostToDevice));
 
 	// data
 	float* dev_data_points = 0;
-	cudaMalloc((void**)&dev_data_points, N_data * d * sizeof(float));
-	cudaMemcpy(dev_data_points, data, N_data * d * sizeof(float), cudaMemcpyHostToDevice);
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_data_points, N_data * d * sizeof(float)));
+	CUDA_CHECK_RETURN(cudaMemcpy(dev_data_points, data, N_data * d * sizeof(float), cudaMemcpyHostToDevice));
 
 	// thread queue
 	Point* dev_thread_queue;
-	cudaMalloc((void**)&dev_thread_queue, threadQueueSize * sizeof(Point));
-	cudaMemcpy(dev_thread_queue, threadQueueArray, threadQueueSize * sizeof(Point), cudaMemcpyHostToDevice);
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_thread_queue, threadQueueSize * sizeof(Point)));
+	CUDA_CHECK_RETURN(cudaMemcpy(dev_thread_queue, threadQueueArray, threadQueueSize * sizeof(Point), cudaMemcpyHostToDevice));
 
 	// result
 	Point* dev_result = 0;
-	cudaMalloc((void**)&dev_result, resultSize * sizeof(Point));
-	cudaMemcpy(dev_result, resultArray, resultSize * sizeof(Point), cudaMemcpyHostToDevice);
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_result, resultSize * sizeof(Point)));
+	CUDA_CHECK_RETURN(cudaMemcpy(dev_result, resultArray, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
 
-	printf("Threads: %d\n", threads);
-	printf("Blocks: %d\n", blocks);
 	clock_t before = clock();
 	knn << <blocks, threads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_thread_queue ,dev_result);
 
-	cudaStatus = cudaGetLastError();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-		throw "Error in optimizedLinearScan run.";
-	}
-
-	cudaStatus = cudaDeviceSynchronize();
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-		throw "Error in optimizedLinearScan run.";
-	}
+	CUDA_CHECK_RETURN(cudaGetLastError());
+	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 
 	clock_t time_lapsed = clock() - before;
 	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
-	cudaStatus = cudaMemcpy(resultArray, dev_result, resultSize * sizeof(Point), cudaMemcpyDeviceToHost);
-
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cuda memcpy from device to host returned error code %d \n", cudaStatus);
-		throw "Error in optimizedLinearScan run.";
-	}
+	CUDA_CHECK_RETURN(cudaMemcpy(resultArray, dev_result, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
 
 	//Free memory... 
-	cudaFree(dev_query_points);
-	cudaFree(dev_data_points);
-	cudaFree(dev_thread_queue);
-	cudaFree(dev_result);
+	CUDA_CHECK_RETURN(cudaFree(dev_query_points));
+	CUDA_CHECK_RETURN(cudaFree(dev_data_points));
+	CUDA_CHECK_RETURN(cudaFree(dev_thread_queue));
+	CUDA_CHECK_RETURN(cudaFree(dev_result));
 
 	free(threadQueueArray);
 
-	cudaStatus = cudaDeviceReset();
+	CUDA_CHECK_RETURN(cudaDeviceReset());
 
 	return resultArray;
 }

@@ -15,12 +15,14 @@
 #include "simHash.cuh"
 #include "resultWriter.h"
 
+
 int main(int argc, char **argv)
 {
 	//In arguments. 
 	char* filepath_data = argv[1];
 	char* filepath_queries = argv[2];
 	char* _k = argv[3];
+	int implementation = atoi(argv[4]);
 	int k = atoi(_k);
 	int N_data = 0;
 	int N_query = 0;
@@ -37,13 +39,22 @@ int main(int argc, char **argv)
 	printf("N_Data = %d \n", N_data);
 	printf("k is set to: %d\n", k);
 
-	// TODO args for selecting implementation
-	//Point* resDebug = runSimpleLinearScan(k, d, N_query, N_data, data, queries);
-	//printf("Done with simple scan \n \n"); 
-	//Point* res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
+	printf("Implementation selected = %d\n", implementation); 
+	Point* res; 
 
-
-	Point* res = runSimHashLinearScan(k, d, 6, N_query, N_data, data, queries);
+	switch (implementation)
+	{
+	case 1:
+		res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
+		break;
+	case 2: 
+		res = runSimHashLinearScan(k, d, atoi(argv[5]), N_query, N_data, data, queries);
+		break;
+	default:
+		printf("Invalid implementation selected. \n");
+		//exit(-1);
+		break; //?
+	}
 
 	writeResult(res, k, N_query); 
 	//writeOnlyIDs(res, k, N_query); 

@@ -14,6 +14,9 @@
     <CudaCompile Include="simpleLinearScan.cu">
       <Filter>scanners</Filter>
     </CudaCompile>
+    <CudaCompile Include="memOptimizedLinearScan.cu">
+      <Filter>scanners</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="parsing">
@@ -56,6 +59,12 @@
       <Filter>utils</Filter>
     </ClInclude>
     <ClInclude Include="constants.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="memOptimizedLinearScan.cuh">
+      <Filter>scanners</Filter>
+    </ClInclude>
+    <ClInclude Include="pointExtensions.cuh">
       <Filter>utils</Filter>
     </ClInclude>
   </ItemGroup>
