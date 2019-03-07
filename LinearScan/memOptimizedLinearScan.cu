@@ -5,15 +5,13 @@
 #include "point.h"
 #include<iostream>
 #include "pointExtensions.cuh"
+#include <time.h>
 
-#define THREADS 320
+#define THREADS 640
 #define THREAD_QUEUE_SIZE 4
-#define K 32
 #define WARPSIZE 32
 #define FULL_MASK 0xffffffff
 #define WARP_LEADER_THREAD 0
-
-#define DEBUG_WARP 1
 
 #define CUDA_CHECK_RETURN(value){ \
 	cudaError_t _m_cudaStat = value; \
@@ -37,6 +35,7 @@ Point* divideData(Point* val) {
 
 	// write to shared memory
 	int valIdx = 0;
+#pragma unroll
 	for (int i = threadIdx.x * THREAD_QUEUE_SIZE; i < threadIdx.x * THREAD_QUEUE_SIZE + THREAD_QUEUE_SIZE; i++) {
 		allData[i] = val[valIdx++];
 	}
@@ -44,7 +43,7 @@ Point* divideData(Point* val) {
 	__syncwarp();
 
 	valIdx = 0;
-	// read to local memory
+
 	for (int i = (warpID * warpArrSize) + lane; i < warpEndIdx; i += WARPSIZE) {
 		val[valIdx++] = allData[i];
 	}
@@ -78,26 +77,20 @@ Point subPairSort(Point val, int wSize) {
 	return val;
 }
 
-__inline__ __device__
-void printThreadQueue(Point* val) {
-	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-		printf("T[%d] TQ[%d] = (%d, %f)\n", threadIdx.x, i, val[i].ID, val[i].distance);
-	}
-}
+//__inline__ __device__
+//void printThreadQueue(Point* val) {
+//	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+//		printf("T[%d] TQ[%d] = (%d, %f)\n", threadIdx.x, i, val[i].ID, val[i].distance);
+//	}
+//}
 
 __inline__ __device__
 Point* warpSort(Point* val) {
 	int lane = threadIdx.x % WARPSIZE;
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE; 
 
-	/*if (warpId == 1) {
-		printf("Before sort \n");
-		printThreadQueue(val);
-	}*/
-
 
 	for (int pairSize = 1; pairSize < WARPSIZE; pairSize *= 2) {
-		//printf("Pair size: %d\n", pairSize);
 
 		int pairIdx = lane / pairSize;
 		int pairLane = lane % pairSize;
@@ -141,11 +134,6 @@ Point* warpSort(Point* val) {
 
 	val = divideData(val);
 
-	/*if (warpId == 1) {
-		printf("After sort \n");
-		printThreadQueue(val);
-	}*/
-
 	return val;
 }
 
@@ -161,8 +149,6 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 
-	printf("T[%d] queryID: %d\n", threadIdx.x, queryId);
-
 	//Fill thread queue with defaults
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = createPoint(-1, maxKDistance);
@@ -170,6 +156,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 	float magnitude_query = 0;
 
+#pragma unroll
 	for (int j = 0; j < dimensions; j++) {
 		magnitude_query += queryPoints[queryId + j] * queryPoints[queryId + j];
 	}
@@ -181,6 +168,8 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		float dotProduct = 0;
 		float magnitude_data = 0.0;
 
+
+#pragma unroll
 		for (int j = 0; j < dimensions; j++) {
 			dotProduct += queryPoints[queryId + j] * dataPoints[dimensions*i + j];
 			magnitude_data += dataPoints[dimensions*i + j] * dataPoints[dimensions*i + j];
@@ -234,6 +223,8 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 
 	Point* newQueue = warpSort(threadQueue);
+
+#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = newQueue[i];
 	}
@@ -241,6 +232,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	//Copy result from warp queues to result array in reverse order. 
 	int kIdx = (WARPSIZE - lane) - 1; 
 	int warpQueueIdx = THREAD_QUEUE_SIZE - 1;
+
 	for (int i = kIdx; i < k; i += WARPSIZE)
 	{
 		result[resultIdx + i] = threadQueue[warpQueueIdx--]; 
@@ -267,11 +259,13 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	Point* dev_result = 0;
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_result, resultSize * sizeof(Point)));
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_result, resultArray, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
-
-	knn << <blocks, THREADS >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result);
-
+	clock_t before = clock();
+	knn << <500, THREADS >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result);
 	CUDA_CHECK_RETURN(cudaGetLastError());
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+
+	clock_t time_lapsed = clock() - before;
+	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	CUDA_CHECK_RETURN(cudaMemcpy(resultArray, dev_result, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
 
