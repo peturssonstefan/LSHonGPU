@@ -14,7 +14,9 @@
 #include "optimizedLinearScan.cuh"
 #include "simHash.cuh"
 #include "resultWriter.h"
+#include "memOptimizedLinearScan.cuh"
 
+char* implementations[3] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan" };
 
 int main(int argc, char **argv)
 {
@@ -39,7 +41,7 @@ int main(int argc, char **argv)
 	printf("N_Data = %d \n", N_data);
 	printf("k is set to: %d\n", k);
 
-	printf("Implementation selected = %d\n", implementation); 
+	printf("Implementation selected = %s\n", implementations[implementation-1]); 
 	Point* res; 
 
 	switch (implementation)
@@ -47,7 +49,10 @@ int main(int argc, char **argv)
 	case 1:
 		res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
 		break;
-	case 2: 
+	case 2:
+		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries);
+		break;
+	case 3: 
 		res = runSimHashLinearScan(k, d, atoi(argv[5]), N_query, N_data, data, queries);
 		break;
 	default:

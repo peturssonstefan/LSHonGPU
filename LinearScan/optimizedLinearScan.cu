@@ -28,6 +28,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		Point p; 
 		p.distance = 2.0f; 
 		p.ID = -1;
+		candidateItems[i] = p;
 	}
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x; 
 	int queryIndex = blockIdx.x * dimensions;
