@@ -100,6 +100,7 @@
     <ClInclude Include="optimizedLinearScan.cuh" />
     <ClInclude Include="point.h" />
     <ClInclude Include="pointExtensions.cuh" />
+    <ClInclude Include="pointWithIndex.h" />
     <ClInclude Include="resultWriter.h" />
     <ClInclude Include="shuffleUtils.cuh" />
     <ClInclude Include="simHash.cuh" />

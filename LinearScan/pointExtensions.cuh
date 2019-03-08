@@ -1,6 +1,7 @@
 #include "point.h"
 #include "math.h"
 #include <device_launch_parameters.h>
+#include "pointWithIndex.h"
 
 __inline__ __device__
 Point min(Point p1, Point p2) {
@@ -18,4 +19,26 @@ Point createPoint(int ID, float distance) {
 	p.ID = ID; 
 	p.distance = distance; 
 	return p;
+}
+
+
+__inline__ __device__
+PointWithIndex min(PointWithIndex p1, PointWithIndex p2) {
+	return p1.idx < p2.idx ? p1 : p2;
+}
+
+__inline__ __device__
+PointWithIndex max(PointWithIndex p1, PointWithIndex p2) {
+	return p1.idx > p2.idx ? p1 : p2;
+}
+
+__inline__ __device__
+PointWithIndex createPointWithIndex(int idx, Point p) {
+	PointWithIndex pWI;
+
+	pWI.idx = idx;
+	pWI.ID = p.ID;
+	pWI.distance = p.distance;
+
+	return pWI;
 }

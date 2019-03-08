@@ -7,7 +7,7 @@
 #include "pointExtensions.cuh"
 #include <time.h>
 
-#define THREADS 640
+#define THREADS 32
 #define THREAD_QUEUE_SIZE 4
 #define WARPSIZE 32
 #define FULL_MASK 0xffffffff
@@ -20,7 +20,6 @@
 		exit(-1); \
 	} \
 }\
-
 
 __inline__ __device__
 Point* divideData(Point* val) {
@@ -66,7 +65,6 @@ Point subPairSort(Point val, int wSize) {
 		//printf("Offset: %d \n", offset);
 		Point otherPoint;
 
-		int otherT = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset);
 		int otherLane = __shfl_xor_sync(FULL_MASK, lane, offset);
 		otherPoint.ID = __shfl_xor_sync(FULL_MASK, val.ID, offset);
 		otherPoint.distance = __shfl_xor_sync(FULL_MASK, val.distance, offset);
@@ -83,6 +81,120 @@ Point subPairSort(Point val, int wSize) {
 //		printf("T[%d] TQ[%d] = (%d, %f)\n", threadIdx.x, i, val[i].ID, val[i].distance);
 //	}
 //}
+
+
+__inline__ __device__
+PointWithIndex subPairSort(PointWithIndex val, int wSize) {
+	int lane = threadIdx.x % wSize;
+
+	for (int offset = wSize / 2; offset > 0; offset /= 2) {
+		//printf("Offset: %d \n", offset);
+		PointWithIndex otherPoint;
+
+		int otherLane = __shfl_xor_sync(FULL_MASK, lane, offset);
+		otherPoint.idx = __shfl_sync(FULL_MASK, val.idx, offset);
+		otherPoint.ID = __shfl_sync(FULL_MASK, val.ID, offset);
+		otherPoint.distance = __shfl_sync(FULL_MASK, val.distance, offset);
+		
+		val = otherLane < lane ? max(val, otherPoint) : min(val, otherPoint);
+
+	}
+	return val;
+}
+
+
+__inline__ __device__
+void printThreadQueueIdx(PointWithIndex* val) {
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		printf("T[%d] TQ[%d] = (%d, %d, %f)\n", threadIdx.x, i, val[i].idx, val[i].ID, val[i].distance);
+	}
+}
+
+__inline__ __device__
+Point* divideDataShuffle(Point* val) {
+	int lane = threadIdx.x % WARPSIZE;
+	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
+
+	PointWithIndex newVal[THREAD_QUEUE_SIZE];
+
+	// Map points to their destination indexes
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		int overallIdx = THREAD_QUEUE_SIZE * lane + i;
+		int destinationlane = overallIdx % WARPSIZE;
+		int destinationArrIdx = overallIdx / WARPSIZE;
+		int destinationIdx = destinationlane * THREAD_QUEUE_SIZE + destinationArrIdx;
+
+		newVal[i] = createPointWithIndex(destinationIdx, val[i]);
+	}
+
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		for (int j = i; j < THREAD_QUEUE_SIZE; j++) {
+			if (newVal[j].idx < newVal[i].idx) {
+				PointWithIndex swap = newVal[j];
+				newVal[j] = newVal[i];
+				newVal[i] = swap;
+			}
+		}
+	}
+
+	printf("Before divide \n");
+	printThreadQueueIdx(newVal);
+
+	for (int pairSize = 1; pairSize < WARPSIZE; pairSize *= 2) {
+
+		int pairIdx = lane / pairSize;
+		int pairLane = lane % pairSize;
+		int exchangePairIdx = pairIdx % 2 == 0 ? pairIdx + 1 : pairIdx - 1;
+		int exchangeLane = (exchangePairIdx * pairSize + (pairSize - pairLane - 1));
+		int start = pairIdx % 2 == 0 ? 0 : THREAD_QUEUE_SIZE - 1;
+		int increment = pairIdx % 2 == 0 ? 1 : -1;
+
+		for (int i = start; i < THREAD_QUEUE_SIZE && i >= 0; i += increment) {
+			//if (exchangeLane == lane) continue; 
+			PointWithIndex otherPoint;
+
+			otherPoint.idx = __shfl_sync(FULL_MASK, newVal[i].idx, exchangeLane);
+			otherPoint.ID = __shfl_sync(FULL_MASK, newVal[i].ID, exchangeLane);
+			otherPoint.distance = __shfl_sync(FULL_MASK, newVal[i].distance, exchangeLane);
+
+			newVal[i] = exchangeLane < lane ? max(newVal[i], otherPoint) : min(newVal[i], otherPoint);
+			newVal[i] = subPairSort(newVal[i], pairSize * 2);
+		}
+
+		// Local sort.
+		int startIndex = 0;
+		int stride = THREAD_QUEUE_SIZE / 2;
+		while (true) {
+			if (stride == 0) break;
+			for (int i = startIndex; i < startIndex + stride; i++) {
+				PointWithIndex v1 = newVal[i];
+				PointWithIndex v2 = newVal[i + stride];
+				if (v2.idx < v1.idx) {
+					newVal[i + stride] = v1;
+					newVal[i] = v2;
+				}
+			}
+			if (startIndex + 2 * stride >= THREAD_QUEUE_SIZE) {
+				startIndex = 0;
+				stride /= 2;
+			}
+			else {
+				startIndex += stride * 2;
+			}
+		}
+
+	}
+
+	printf("After divide \n");
+	printThreadQueueIdx(newVal);
+
+	// Map newval back to val
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		val[i] = createPoint(newVal[i].ID, newVal[i].distance);
+	}
+
+	return val;
+}
 
 __inline__ __device__
 Point* warpSort(Point* val) {
@@ -103,9 +215,7 @@ Point* warpSort(Point* val) {
 			Point otherPoint;
 			otherPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, exchangeLane);
 			otherPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, exchangeLane);
-			
 			val[i] = lane < exchangeLane ? max(val[i], otherPoint) : min(val[i], otherPoint);
-
 			val[i] = subPairSort(val[i], pairSize * 2);
 		}
 
@@ -130,9 +240,13 @@ Point* warpSort(Point* val) {
 				startIndex += stride * 2;
 			}
 		}
+
 	}
 
+	__syncwarp();
+
 	val = divideData(val);
+	//val = divideDataShuffle(val);
 
 	return val;
 }
@@ -200,8 +314,11 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 				}
 			}
 			Point* newQueue = warpSort(threadQueue);
-			for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+			for (int i = 0; i < THREAD_QUEUE_SIZE; i+=4) {
 				threadQueue[i] = newQueue[i]; 
+				threadQueue[i+1] = newQueue[i+1];
+				threadQueue[i+2] = newQueue[i+2];
+				threadQueue[i+3] = newQueue[i+3];
 			}
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
 		}
@@ -260,7 +377,7 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_result, resultSize * sizeof(Point)));
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_result, resultArray, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
 	clock_t before = clock();
-	knn << <500, THREADS >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result);
+	knn << <blocks, THREADS >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result);
 	CUDA_CHECK_RETURN(cudaGetLastError());
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 

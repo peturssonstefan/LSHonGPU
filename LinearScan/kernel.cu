@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 		break; //?
 	}
 
-	//writeResult(res, k, N_query); 
+	writeResult(res, k, N_query); 
 	//writeOnlyIDs(res, k, N_query); 
 
 	printf("Starting to free \n"); 
