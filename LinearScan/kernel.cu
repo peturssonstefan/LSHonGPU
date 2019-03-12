@@ -23,8 +23,9 @@ int main(int argc, char **argv)
 	//In arguments. 
 	char* filepath_data = argv[1];
 	char* filepath_queries = argv[2];
-	char* _k = argv[3];
-	int implementation = atoi(argv[4]);
+	int writeRes = atoi(argv[3]); //1 for yes, 0 for no.
+	char* _k = argv[4];
+	int implementation = atoi(argv[5]);
 	int k = atoi(_k);
 	int N_data = 0;
 	int N_query = 0;
@@ -40,6 +41,7 @@ int main(int argc, char **argv)
 	printf("N_Query = %d \n", N_query);
 	printf("N_Data = %d \n", N_data);
 	printf("k is set to: %d\n", k);
+	printf("Write res is set to %s \n", writeRes ? "True" : "False");
 
 	printf("Implementation selected = %s\n", implementations[implementation-1]); 
 	Point* res; 
@@ -53,7 +55,7 @@ int main(int argc, char **argv)
 		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries);
 		break;
 	case 3: 
-		res = runSimHashLinearScan(k, d, atoi(argv[5]), N_query, N_data, data, queries);
+		res = runSimHashLinearScan(k, d, atoi(argv[6]), N_query, N_data, data, queries);
 		break;
 	default:
 		printf("Invalid implementation selected. \n");
@@ -61,8 +63,9 @@ int main(int argc, char **argv)
 		break; //?
 	}
 
-	writeResult(res, k, N_query); 
-	//writeOnlyIDs(res, k, N_query); 
+	if (writeRes) {
+		writeResult(res, k, N_query);
+	}
 
 	printf("Starting to free \n"); 
 	free(queries);
