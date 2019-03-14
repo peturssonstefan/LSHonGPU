@@ -55,9 +55,6 @@
     <ClInclude Include="hammingDistanceScanner.cuh">
       <Filter>scanners</Filter>
     </ClInclude>
-    <ClInclude Include="shuffleUtils.cuh">
-      <Filter>utils</Filter>
-    </ClInclude>
     <ClInclude Include="constants.cuh">
       <Filter>utils</Filter>
     </ClInclude>
@@ -72,6 +69,12 @@
     </ClInclude>
     <ClInclude Include="sortParameters.h">
       <Filter>models</Filter>
+    </ClInclude>
+    <ClInclude Include="candidateSetScanner.cuh">
+      <Filter>scanners</Filter>
+    </ClInclude>
+    <ClInclude Include="sortingFramework.cuh">
+      <Filter>utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

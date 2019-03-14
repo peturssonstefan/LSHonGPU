@@ -93,6 +93,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="candidateSetScanner.cuh" />
     <ClInclude Include="constants.cuh" />
     <ClInclude Include="gloveparser.cuh" />
     <ClInclude Include="hammingDistanceScanner.cuh" />
@@ -102,7 +103,7 @@
     <ClInclude Include="pointExtensions.cuh" />
     <ClInclude Include="pointWithIndex.h" />
     <ClInclude Include="resultWriter.h" />
-    <ClInclude Include="shuffleUtils.cuh" />
+    <ClInclude Include="sortingFramework.cuh" />
     <ClInclude Include="simHash.cuh" />
     <ClInclude Include="simpleLinearScan.cuh" />
     <ClInclude Include="sortParameters.h" />

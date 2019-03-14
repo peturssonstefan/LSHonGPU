@@ -7,7 +7,7 @@
 #include "point.h"
 #include <time.h>
 #include <algorithm>
-#include "shuffleUtils.cuh"
+#include "sortingFramework.cuh"
 
 
 

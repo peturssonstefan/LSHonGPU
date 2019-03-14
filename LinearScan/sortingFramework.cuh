@@ -131,20 +131,9 @@ void subSortUnrolled(Point& val) {
 
 __inline__ __device__
 void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
-	/*	int lane = threadIdx.x % WARPSIZE;
-		int allElemSize = (THREAD_QUEUE_SIZE * WARPSIZE);
-		int allIdx = 0;
-		int pairIdx = 0;
-		int pairLane = 0;
-		int exchangePairIdx = 0;
-		int exchangeLane = 0;
-		int elemsToExchange = 0;
-		int start = 0;
-		int increment = 0;
-		int end = 0*/;
 
-		// MEMORY ISSUE HERE!!!
 
+	// MEMORY ISSUE HERE - do not loop unroll 
 	for (int pairSize = 1; pairSize <= WARPSIZE / 2; pairSize *= 2) {
 
 		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
@@ -161,11 +150,9 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	}
 
 
-	//#pragma unroll
 	for (int pairSize = WARPSIZE; pairSize <= (THREAD_QUEUE_SIZE * WARPSIZE) / 2; pairSize *= 2) {
 
 		params.exchangeLane = (WARPSIZE - 1) - params.lane;
-		//pairCoupleSize = (allElemSize / pairSize) / 2;
 		params.elemsToExchange = pairSize / WARPSIZE * 2;
 
 		for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
@@ -198,4 +185,18 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			subSortUnrolled(val[i]);
 		}
 	}
+}
+
+__inline__ __device__
+void startSort(Point* threadQueue, Point swapPoint, Parameters& params) {
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		for (int j = i; j < THREAD_QUEUE_SIZE; j++) {
+			if (threadQueue[i].distance < threadQueue[j].distance) {
+				swapPoint = threadQueue[j];
+				threadQueue[j] = threadQueue[i];
+				threadQueue[i] = swapPoint;
+			}
+		}
+	}
+	laneStrideSort(threadQueue, swapPoint, params);
 }
