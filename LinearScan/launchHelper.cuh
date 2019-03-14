@@ -15,3 +15,9 @@ int calculateBlocksLocal(int querypoints) {
 	if (querypoints * WARPSIZE < MAX_THREADS) return 1;
 	else return ceil(querypoints / (float)WARPSIZE);
 }
+
+__inline__ __host__ __device__
+int calculateK(int k) {
+	int divisor = k / WARPSIZE;
+	return divisor * WARPSIZE + WARPSIZE; 
+}

@@ -15,6 +15,7 @@
 #include "simHash.cuh"
 #include "resultWriter.h"
 #include "memOptimizedLinearScan.cuh"
+#include "launchHelper.cuh"
 
 char* implementations[3] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan" };
 
@@ -26,7 +27,8 @@ int main(int argc, char **argv)
 	int writeRes = atoi(argv[3]); //1 for yes, 0 for no.
 	char* _k = argv[4];
 	int implementation = atoi(argv[5]);
-	int k = atoi(_k);
+	int reportK = atoi(_k);
+	int k = calculateK(reportK);
 	int N_data = 0;
 	int N_query = 0;
 	int d = 0;
@@ -64,7 +66,7 @@ int main(int argc, char **argv)
 	}
 
 	if (writeRes) {
-		writeResult(res, k, N_query);
+		writeResult(res, k, N_query, reportK);
 	}
 
 	printf("Starting to free \n"); 
