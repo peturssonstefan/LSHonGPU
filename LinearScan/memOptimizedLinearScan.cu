@@ -9,7 +9,7 @@
 #include <math.h>
 #include "constants.cuh"
 #include "sortParameters.h"
-#include "shuffleUtils.cuh"
+#include "sortingFramework.cuh"
 
 #define THREADS 320
 
@@ -79,34 +79,13 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		
 		//Verify that head of thread queue is not smaller than biggest k distance.
 		if (__ballot_sync(FULL_MASK,threadQueue[0].distance < maxKDistance)) {
-			for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-				for (int j = i; j < THREAD_QUEUE_SIZE; j++) {
-					if (threadQueue[i].distance < threadQueue[j].distance) {
-						swapPoint = threadQueue[j];
-						threadQueue[j] = threadQueue[i];
-						threadQueue[i] = swapPoint;
-					}
-				}
-			}
-			laneStrideSort(threadQueue, swapPoint, params);
-
+			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
 		}
 		
 	}
 
-	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-		for (int j = i; j < THREAD_QUEUE_SIZE; j++) {
-			if (threadQueue[i].distance < threadQueue[j].distance) {
-				swapPoint = threadQueue[j];
-				threadQueue[j] = threadQueue[i];
-				threadQueue[i] = swapPoint;
-			}
-		}
-	}
-	
-
-	laneStrideSort(threadQueue, swapPoint, params);
+	startSort(threadQueue, swapPoint, params);
 
 	//Copy result from warp queues to result array in reverse order. 
 	int kIdx = (WARPSIZE - lane) - 1; 
