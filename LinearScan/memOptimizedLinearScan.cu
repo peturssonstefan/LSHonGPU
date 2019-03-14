@@ -6,12 +6,13 @@
 #include<iostream>
 #include "pointExtensions.cuh"
 #include <time.h>
+#include <math.h>
+#include "constants.cuh"
+#include "sortParameters.h"
+#include "shuffleUtils.cuh"
 
 #define THREADS 320
-#define THREAD_QUEUE_SIZE 16
-#define WARPSIZE 32
-#define FULL_MASK 0xffffffff
-#define WARP_LEADER_THREAD 0
+
 
 #define CUDA_CHECK_RETURN(value){ \
 	cudaError_t _m_cudaStat = value; \
@@ -20,117 +21,6 @@
 		exit(-1); \
 	} \
 }\
-
-__inline__ __device__
-float broadCastMaxK(float maxK) {
-	float otherVal = __shfl_sync(FULL_MASK, maxK, WARP_LEADER_THREAD);
-	return maxK < otherVal ? otherVal : maxK; 
-}
-
-__inline__ __device__
-void subSort(Point& val, int size, Point swapPoint) {
-
-	for (int offset = size / 2; offset > 0; offset /= 2) {
-		//int otherTid = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, size);
-		swapPoint.ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, size);
-		swapPoint.distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, size);
-		val = threadIdx.x < __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, size) ? max(val, swapPoint) : min(val, swapPoint);
-	}
-}
-
-__inline__ __device__
-void subSortUnrolled(Point& val, Point swapPoint) {
-
-#pragma unroll
-	for (int offset = WARPSIZE / 2; offset > 0; offset /= 2) {
-		//int otherTid = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-		swapPoint.ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
-		swapPoint.distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
-		val = threadIdx.x < __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE) ? max(val, swapPoint) : min(val, swapPoint);
-	}
-}
-
-//__inline__ __device__
-//void printThreadQueue(Point* val) {
-//	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-//		printf("T[%d] TQ[%d] = (%d, %f)\n", threadIdx.x, i, val[i].ID, val[i].distance);
-//	}
-//}
-
-__inline__ __device__
-void laneStrideSort(Point* val, Point swapPoint) {
-	int lane = threadIdx.x % WARPSIZE;
-	int allElemSize = (THREAD_QUEUE_SIZE * WARPSIZE);
-	int allIdx = 0; 
-	int pairIdx = 0;
-	int pairLane = 0;
-	int exchangePairIdx = 0; 
-	int exchangeLane = 0;
-	//int pairCoupleSize = 0; 
-	int elemsToExchange = 0;
-	int start = 0; 
-	int increment = 0; 
-	int end = 0;
-
-#pragma unroll
-	for (int pairSize = 1; pairSize <= WARPSIZE / 2; pairSize *= 2) {
-
-		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-			allIdx = lane + WARPSIZE * i;
-			pairIdx = allIdx / pairSize;
-			pairLane = allIdx % pairSize;
-			exchangePairIdx = pairIdx % 2 == 0 ? pairIdx + 1 : pairIdx - 1;
-			exchangeLane = (exchangePairIdx * pairSize + (pairSize - pairLane - 1)) % WARPSIZE;
-			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, exchangeLane, WARPSIZE);
-			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, exchangeLane, WARPSIZE);
-
-			//printf("(I,P): (%d,%d)  -  T[%d] to T[%d] vals: (%d,%d) \n ", i, pairSize, tid, exchangeLane, val[i], otherVal);
-			val[i] = lane < exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
-
-			subSort(val[i], pairSize * 2, createPoint(-1, 10));
-		}
-	}
-
-
-#pragma unroll
-	for (int pairSize = WARPSIZE; pairSize <= (THREAD_QUEUE_SIZE * WARPSIZE) / 2; pairSize *= 2) {
-
-		exchangeLane = (WARPSIZE - 1) - lane;
-		//pairCoupleSize = (allElemSize / pairSize) / 2;
-		elemsToExchange = pairSize / WARPSIZE * 2;
-
-		for (int pairCouple = 0; pairCouple < ((allElemSize / pairSize) / 2); pairCouple++) {
-
-			start = lane % 2 == 0 ? pairCouple * elemsToExchange : pairCouple * elemsToExchange + elemsToExchange - 1;
-			increment = lane % 2 == 0 ? 1 : -1;
-			end = elemsToExchange + (pairCouple * elemsToExchange);
-			for (int i = start; i < end && i >= pairCouple * elemsToExchange; i += increment) {
-				allIdx = lane + WARPSIZE * i;
-				pairIdx = allIdx / pairSize;
-				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, exchangeLane, WARPSIZE);
-				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, exchangeLane, WARPSIZE);
-				val[i] = pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			}
-			if (pairSize > WARPSIZE) {
-				for (int i = pairCouple * elemsToExchange; i < pairCouple*elemsToExchange + elemsToExchange; i++) {
-					for (int j = i; j < pairCouple*elemsToExchange + elemsToExchange; j++) {
-						if (val[i].distance < val[j].distance) {
-							swapPoint = val[i];
-							val[i] = val[j];
-							val[j] = swapPoint;
-						}
-					}
-				}
-			}
-		}
-
-#pragma unroll
-		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-			subSortUnrolled(val[i], swapPoint);
-		}
-	}
-
-}
 
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result) {
@@ -144,6 +34,8 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
+	Parameters params; 
+	params.lane = threadIdx.x % WARPSIZE;
 	//Fill thread queue with defaults
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = createPoint(-1, maxKDistance);
@@ -196,7 +88,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 					}
 				}
 			}
-			laneStrideSort(threadQueue, swapPoint);
+			laneStrideSort(threadQueue, swapPoint, params);
 
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
 		}
@@ -214,7 +106,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	}
 	
 
-	laneStrideSort(threadQueue, swapPoint);
+	laneStrideSort(threadQueue, swapPoint, params);
 
 	//Copy result from warp queues to result array in reverse order. 
 	int kIdx = (WARPSIZE - lane) - 1; 

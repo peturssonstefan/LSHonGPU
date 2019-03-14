@@ -105,6 +105,7 @@
     <ClInclude Include="shuffleUtils.cuh" />
     <ClInclude Include="simHash.cuh" />
     <ClInclude Include="simpleLinearScan.cuh" />
+    <ClInclude Include="sortParameters.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />

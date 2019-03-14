@@ -3,6 +3,8 @@
 #include <cuda_runtime.h>
 #include "point.h"
 #include "constants.cuh"
+#include "pointExtensions.cuh"
+#include "sortParameters.h"
 
 template <typename T>
 inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = warpSize) {
@@ -15,6 +17,11 @@ inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = 
 #endif
 }
 
+__inline__ __device__
+float broadCastMaxK(float maxK) {
+	float otherVal = __shfl_sync(FULL_MASK, maxK, WARP_LEADER_THREAD);
+	return maxK < otherVal ? otherVal : maxK;
+}
 
 __inline__ __device__
 Point* warpReduceArrays(Point* val, int k) {
@@ -72,4 +79,123 @@ Point* blockReduce(Point* val, int k, float maxValue) {
 	}
 
 	return val;
+}
+
+
+__inline__ __device__
+void subSort(Point& val, int size) {
+
+	for (int offset = size / 2; offset > 0; offset /= 2) {
+		//int otherTid = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, size);
+		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, size);
+		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, size);
+
+		if (threadIdx.x < __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, size)) {
+			val.ID = val.distance > distance ? val.ID : ID;
+			val.distance = val.distance > distance ? val.distance : distance;
+		}
+		else {
+			val.ID = val.distance < distance ? val.ID : ID;
+			val.distance = val.distance < distance ? val.distance : distance;
+		}
+
+	}
+}
+
+__inline__ __device__
+void subSortUnrolled(Point& val) {
+
+#pragma unroll
+	for (int offset = WARPSIZE / 2; offset > 0; offset /= 2) {
+		//int otherTid = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
+		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
+		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
+
+		if (threadIdx.x < __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE)) {
+			val.ID = val.distance > distance ? val.ID : ID;
+			val.distance = val.distance > distance ? val.distance : distance;
+		}
+		else {
+			val.ID = val.distance < distance ? val.ID : ID;
+			val.distance = val.distance < distance ? val.distance : distance;
+		}
+	}
+}
+
+//__inline__ __device__
+//void printThreadQueue(Point* val) {
+//	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+//		printf("T[%d] TQ[%d] = (%d, %f)\n", threadIdx.x, i, val[i].ID, val[i].distance);
+//	}
+//}
+
+__inline__ __device__
+void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
+	/*	int lane = threadIdx.x % WARPSIZE;
+		int allElemSize = (THREAD_QUEUE_SIZE * WARPSIZE);
+		int allIdx = 0;
+		int pairIdx = 0;
+		int pairLane = 0;
+		int exchangePairIdx = 0;
+		int exchangeLane = 0;
+		int elemsToExchange = 0;
+		int start = 0;
+		int increment = 0;
+		int end = 0*/;
+
+		// MEMORY ISSUE HERE!!!
+
+	for (int pairSize = 1; pairSize <= WARPSIZE / 2; pairSize *= 2) {
+
+		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+			params.allIdx = params.lane + WARPSIZE * i;
+			params.pairIdx = params.allIdx / pairSize;
+			params.pairLane = params.allIdx % pairSize;
+			params.exchangePairIdx = params.pairIdx % 2 == 0 ? params.pairIdx + 1 : params.pairIdx - 1;
+			params.exchangeLane = (params.exchangePairIdx * pairSize + (pairSize - params.pairLane - 1)) % WARPSIZE;
+			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
+			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
+			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
+			subSort(val[i], pairSize * 2);
+		}
+	}
+
+
+	//#pragma unroll
+	for (int pairSize = WARPSIZE; pairSize <= (THREAD_QUEUE_SIZE * WARPSIZE) / 2; pairSize *= 2) {
+
+		params.exchangeLane = (WARPSIZE - 1) - params.lane;
+		//pairCoupleSize = (allElemSize / pairSize) / 2;
+		params.elemsToExchange = pairSize / WARPSIZE * 2;
+
+		for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
+
+			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
+			params.increment = params.lane % 2 == 0 ? 1 : -1;
+			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
+			for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
+				params.allIdx = params.lane + WARPSIZE * i;
+				params.pairIdx = params.allIdx / pairSize;
+				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
+				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
+				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
+			}
+			if (pairSize > WARPSIZE) {
+				for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
+					for (int j = i; j < pairCouple*params.elemsToExchange + params.elemsToExchange; j++) {
+						if (val[i].distance < val[j].distance) {
+							swapPoint = val[i];
+							val[i] = val[j];
+							val[j] = swapPoint;
+						}
+					}
+				}
+			}
+		}
+
+		//#pragma unroll
+		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+			subSortUnrolled(val[i]);
+		}
+	}
 }

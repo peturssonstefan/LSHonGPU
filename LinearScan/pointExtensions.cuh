@@ -1,3 +1,4 @@
+#pragma once
 #include "point.h"
 #include "math.h"
 #include <device_launch_parameters.h>

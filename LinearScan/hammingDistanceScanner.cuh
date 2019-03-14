@@ -5,39 +5,35 @@
 #include <stdio.h>
 #include <math.h>
 #include "constants.cuh"
+#include "pointExtensions.cuh"
 
 __inline__ __device__
 void scanHammingDistance(unsigned long * data, unsigned long * queries, int sketchDim, int N_data, int N_query, int k, Point* threadQueue, Point* result)
 {
-	Point candidateItems[MAX_K];
+	Point candidateItems[THREAD_QUEUE_SIZE];
+	int lane = threadIdx.x % WARPSIZE; 
+	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
+	int resultIdx = warpId * k;
+	int queryIdx = warpId * sketchDim;
 
-#pragma unroll
-	for (int i = 0; i < MAX_K; i++) {
-		Point p;
-		p.distance = SKETCH_COMP_SIZE * sketchDim + 1;
-		p.ID = -1;
-		candidateItems[i] = p;
+//#pragma unroll
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		candidateItems[i] = createPoint(-1, SKETCH_COMP_SIZE * sketchDim + 1);
 	}
-	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
-	int queryIndex = blockIdx.x * sketchDim;
-	int tIndex = threadId * k;
-	for (int i = threadIdx.x; i < N_data; i += blockDim.x) {
+
+	for (int i = lane; i < N_data; i += WARPSIZE) {
 		int hammingDistance = 0;
 
 #pragma unroll
 		for (int j = 0; j < sketchDim; j++) {
-			unsigned long queryValue = queries[queryIndex + j]; 
+			unsigned long queryValue = queries[queryIdx + j];
 			unsigned long dataValue = data[sketchDim*i + j]; 
 			unsigned long bits = queryValue ^ dataValue; 
 			int bitCount = __popcll(bits);
 			hammingDistance += bitCount;
 		}
 
-		Point currentPoint;
-
-		currentPoint.ID = i;
-		currentPoint.distance = hammingDistance;
-
+		Point currentPoint = createPoint(i, hammingDistance); 
 		Point swapPoint;
 
 		for (int j = 0; (j < k && j <= i); j++) { // simple sorting.
