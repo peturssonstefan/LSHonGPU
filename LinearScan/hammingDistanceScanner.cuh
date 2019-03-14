@@ -1,3 +1,4 @@
+#pragma once
 #include "sortingFramework.cuh"
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -53,20 +54,12 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 
 		//Verify that head of thread queue is not smaller than biggest k distance.
 		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance)) {
-			for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-				for (int j = i; j < THREAD_QUEUE_SIZE; j++) {
-					if (threadQueue[i].distance < threadQueue[j].distance) {
-						swapPoint = threadQueue[j];
-						threadQueue[j] = threadQueue[i];
-						threadQueue[i] = swapPoint;
-					}
-				}
-			}
-			laneStrideSort(threadQueue, swapPoint, params);
+			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
 		}
 
 	}
+
 	
 	//Sort before candidateSetScan if we only do exact calculations on warp queue elements.
 

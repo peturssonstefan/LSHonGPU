@@ -97,6 +97,7 @@
     <ClInclude Include="constants.cuh" />
     <ClInclude Include="gloveparser.cuh" />
     <ClInclude Include="hammingDistanceScanner.cuh" />
+    <ClInclude Include="launchHelper.cuh" />
     <ClInclude Include="memOptimizedLinearScan.cuh" />
     <ClInclude Include="optimizedLinearScan.cuh" />
     <ClInclude Include="point.h" />

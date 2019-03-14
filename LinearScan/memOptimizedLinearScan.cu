@@ -10,8 +10,7 @@
 #include "constants.cuh"
 #include "sortParameters.h"
 #include "sortingFramework.cuh"
-
-#define THREADS 320
+#include "launchHelper.cuh"
 
 
 #define CUDA_CHECK_RETURN(value){ \
@@ -22,12 +21,15 @@
 	} \
 }\
 
+
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result) {
+	
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * k;
 	int queryId = warpId * dimensions;
+	if (queryId > nQueries * dimensions) return; 
 	int lane = threadIdx.x % WARPSIZE;
 	float maxKDistance = (float)INT_MAX; 
 	int warpQueueSize = k / WARPSIZE; 
@@ -99,7 +101,8 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries) {
 	CUDA_CHECK_RETURN(cudaSetDevice(0));
-	int blocks = 1;
+	int numberOfThreads = calculateThreadsLocal(N_query);
+	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int resultSize = N_query * k;
 	Point *resultArray = (Point*)malloc(resultSize * sizeof(Point));
 	// queries
@@ -117,7 +120,7 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_result, resultSize * sizeof(Point)));
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_result, resultArray, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
 	clock_t before = clock();
-	knn << <blocks, THREADS >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result);
+	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result);
 	CUDA_CHECK_RETURN(cudaGetLastError());
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 
