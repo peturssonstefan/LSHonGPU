@@ -105,7 +105,6 @@ void subSort(Point& val, int size) {
 __inline__ __device__
 void subSortUnrolled(Point& val) {
 
-#pragma unroll
 	for (int offset = WARPSIZE / 2; offset > 0; offset /= 2) {
 		//int otherTid = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
 		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
@@ -187,8 +186,8 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	}
 }
 
-__inline__ __device__
-void startSort(Point* threadQueue, Point swapPoint, Parameters& params) {
+__inline__ __device__ 
+void simpleSort(Point* threadQueue, Point swapPoint) {
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		for (int j = i; j < THREAD_QUEUE_SIZE; j++) {
 			if (threadQueue[i].distance < threadQueue[j].distance) {
@@ -198,5 +197,25 @@ void startSort(Point* threadQueue, Point swapPoint, Parameters& params) {
 			}
 		}
 	}
+}
+
+__inline__ __device__
+void insertionSort(Point* threadQueue, Point swapPoint) {
+	int i, j;
+	for (i = 1; i < THREAD_QUEUE_SIZE; i++) {
+		swapPoint = threadQueue[i];
+		j = i - 1;
+
+		while (j >= 0 && threadQueue[j].distance < swapPoint.distance) {
+			threadQueue[j + 1] = threadQueue[j];
+			j = j - 1;
+		}
+		threadQueue[j + 1] = swapPoint;
+	}
+}
+
+__inline__ __device__
+void startSort(Point* threadQueue, Point swapPoint, Parameters& params) {
+	insertionSort(threadQueue, swapPoint);
 	laneStrideSort(threadQueue, swapPoint, params);
 }

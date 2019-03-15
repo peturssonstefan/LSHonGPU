@@ -53,7 +53,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 		}
 
 		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance  && i < (nData - 1) - WARPSIZE)) {
+		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && i < (nData - 1) - WARPSIZE) { 
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
 		}

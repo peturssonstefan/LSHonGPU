@@ -44,6 +44,9 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	Point swapPoint;
 	Parameters params; 
 	params.lane = threadIdx.x % WARPSIZE;
+
+	int queuePosition = 0;
+
 	//Fill thread queue with defaults
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = createPoint(-1, maxKDistance);
@@ -54,7 +57,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	float magnitude_data = 0.0;
 	float angular_distance = 0.0;
 
-#pragma unroll
+
 	for (int j = 0; j < dimensions; j++) {
 		magnitude_query += queryPoints[queryId + j] * queryPoints[queryId + j];
 	}
@@ -67,7 +70,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		magnitude_data = 0.0; // reset value.
 		angular_distance = 0.0; // reset value.
 
-#pragma unroll
+
 		for (int j = 0; j < dimensions; j++) {
 			dotProduct += queryPoints[queryId + j] * dataPoints[dimensions*i + j];
 			magnitude_data += dataPoints[dimensions*i + j] * dataPoints[dimensions*i + j];
@@ -77,21 +80,31 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		angular_distance = -(dotProduct / (magnitude_query * magnitude_data));
 
 		Point currentPoint = createPoint(i, angular_distance);
-		for (int j = candidateSetSize-1; j >= 0 ; j--) { // simple sorting.
-			if (currentPoint.distance < threadQueue[j].distance) {
-				swapPoint = threadQueue[j];
-				threadQueue[j] = currentPoint;
-				currentPoint = swapPoint;
-			}
-		}
+		//for (int j = candidateSetSize-1; j >= 0 ; j--) { // simple sorting.
+		//	if (currentPoint.distance < threadQueue[j].distance) {
+		//		swapPoint = threadQueue[j];
+		//		threadQueue[j] = currentPoint;
+		//		currentPoint = swapPoint;
+		//	}
+		//}
+		//
+		////Verify that head of thread queue is not smaller than biggest k distance.
+		//if (__ballot_sync(FULL_MASK,threadQueue[0].distance < maxKDistance) && i < (nData - 1) - WARPSIZE) {
+		//	startSort(threadQueue, swapPoint, params);
+		//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
+		//	//printQueue(threadQueue);
+		//}
 		
-		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK,threadQueue[0].distance < maxKDistance && i < (nData - 1) - WARPSIZE)) {
+		if (currentPoint.distance < maxKDistance) {
+			threadQueue[queuePosition++] = currentPoint;
+		}
+
+		if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && i < (nData - 1) - WARPSIZE) {
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
-			printQueue(threadQueue);
+			//printQueue(threadQueue);
+			queuePosition = 0;
 		}
-		
 	}
 
 	startSort(threadQueue, swapPoint, params);
@@ -104,11 +117,12 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	{
 		result[resultIdx + i] = threadQueue[warpQueueIdx--];
 	}
+
 }
 
 Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries) {
 	CUDA_CHECK_RETURN(cudaSetDevice(0));
-	int numberOfThreads = 32;//calculateThreadsLocal(N_query);
+	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int resultSize = N_query * k;
 	Point *resultArray = (Point*)malloc(resultSize * sizeof(Point));
