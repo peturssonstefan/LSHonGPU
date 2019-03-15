@@ -21,6 +21,12 @@
 	} \
 }\
 
+__inline__ __host__ __device__
+void printQueue(Point* queue) {
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		printf("T[%d] arr[%d] = (%d,%f) \n", threadIdx.x, i, queue[i].ID, queue[i].distance);
+	}
+}
 
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result) {
@@ -80,9 +86,10 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		}
 		
 		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK,threadQueue[0].distance < maxKDistance)) {
+		if (__ballot_sync(FULL_MASK,threadQueue[0].distance < maxKDistance && i < (nData - 1) - WARPSIZE)) {
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
+			printQueue(threadQueue);
 		}
 		
 	}
@@ -101,7 +108,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries) {
 	CUDA_CHECK_RETURN(cudaSetDevice(0));
-	int numberOfThreads = calculateThreadsLocal(N_query);
+	int numberOfThreads = 32;//calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int resultSize = N_query * k;
 	Point *resultArray = (Point*)malloc(resultSize * sizeof(Point));

@@ -18,6 +18,6 @@ int calculateBlocksLocal(int querypoints) {
 
 __inline__ __host__ __device__
 int calculateK(int k) {
-	int divisor = k / WARPSIZE;
+	int divisor = (k-1) / WARPSIZE;
 	return divisor * WARPSIZE + WARPSIZE; 
 }

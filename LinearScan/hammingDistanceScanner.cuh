@@ -10,7 +10,7 @@
 #include "candidateSetScanner.cuh"
 
 __inline__ __device__
-void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned long * data, unsigned long * queries, int sketchDim, int N_data, int N_query, int k, Point* result)
+void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned long * data, unsigned long * queries, int sketchDim, int nData, int N_query, int k, Point* result)
 {
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE; 
@@ -30,7 +30,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 		threadQueue[i] = createPoint(-1, SKETCH_COMP_SIZE * sketchDim + 1);
 	}
 
-	for (int i = lane; i < N_data; i += WARPSIZE) {
+	for (int i = lane; i < nData; i += WARPSIZE) {
 		int hammingDistance = 0;
 
 #pragma unroll
@@ -53,7 +53,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 		}
 
 		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance)) {
+		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance  && i < (nData - 1) - WARPSIZE)) {
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
 		}
