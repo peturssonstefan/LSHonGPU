@@ -10,6 +10,7 @@
 #include <time.h>
 #include "constants.cuh"
 #include "hammingDistanceScanner.cuh"
+#include "launchHelper.cuh"
 
 #define CUDA_CHECK_RETURN(value){ \
 	cudaError_t _m_cudaStat = value; \
@@ -18,6 +19,7 @@
 		exit(-1); \
 	} \
 }\
+
 
 __global__
 void sketch(float* data, float* randomVectors, int size, int dimensions, int sketchDim, unsigned long* sketchedData) {
@@ -70,15 +72,17 @@ __global__
 void scan(float* originalData, float* originalQueries, int dimensions, unsigned long * data, unsigned long * queries, int sketchDim, int N_data, int N_query, int k, Point* result) {
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions; 
-	scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions ,data, queries, sketchDim, N_data, N_query, k, result); 
+	if (queryIndex < dimensions * N_query) {
+		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, result);
+	}
 }
 
  
 
 Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
 
-	int numberOfThreads = 320; 
-	int numberOfBlocks = 1;
+	int numberOfThreads = calculateThreadsLocal(N_query);
+	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int bits = sketchedDim * SKETCH_COMP_SIZE;
 	int randomVectorsSize = d * bits; 
 	int dataSize = d * N_data; 

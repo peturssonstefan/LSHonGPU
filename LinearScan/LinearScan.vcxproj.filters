@@ -76,6 +76,9 @@
     <ClInclude Include="sortingFramework.cuh">
       <Filter>utils</Filter>
     </ClInclude>
+    <ClInclude Include="launchHelper.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />
