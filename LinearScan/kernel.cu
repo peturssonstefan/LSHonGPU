@@ -16,6 +16,7 @@
 #include "resultWriter.h"
 #include "memOptimizedLinearScan.cuh"
 #include "launchHelper.cuh"
+#include "validation.h"
 
 char* implementations[3] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan" };
 
@@ -24,9 +25,11 @@ int main(int argc, char **argv)
 	//In arguments. 
 	char* filepath_data = argv[1];
 	char* filepath_queries = argv[2];
-	int writeRes = atoi(argv[3]); //1 for yes, 0 for no.
-	char* _k = argv[4];
-	int implementation = atoi(argv[5]);
+	char* filepath_truth = argv[3]; 
+	int shouldRunValidation = atoi(argv[4]);
+	int writeRes = atoi(argv[5]); //1 for yes, 0 for no.
+	char* _k = argv[6];
+	int implementation = atoi(argv[7]);
 	int reportK = atoi(_k);
 	int k = calculateK(reportK);
 	int N_data = 0;
@@ -57,7 +60,7 @@ int main(int argc, char **argv)
 		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries);
 		break;
 	case 3: 
-		res = runSimHashLinearScan(k, d, atoi(argv[6]), N_query, N_data, data, queries);
+		res = runSimHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
 		break;
 	default:
 		printf("Invalid implementation selected. \n");
@@ -65,7 +68,13 @@ int main(int argc, char **argv)
 		break; //?
 	}
 
+	if (shouldRunValidation) {
+		printf("Running Validation: \n");
+		runValidation(filepath_truth, res, N_query, k, reportK); 
+	}
+
 	if (writeRes) {
+		printf("Writing results: \n");
 		writeResult(res, k, N_query, reportK);
 	}
 
@@ -74,7 +83,6 @@ int main(int argc, char **argv)
 	free(data);
 	printf("Success. Program exiting. \n");
 	free(res);	
-	//free(resDebug);
 	return 0;
 
 }

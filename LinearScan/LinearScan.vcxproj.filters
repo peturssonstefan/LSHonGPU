@@ -79,8 +79,10 @@
     <ClInclude Include="launchHelper.cuh">
       <Filter>utils</Filter>
     </ClInclude>
+    <ClInclude Include="validation.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />
+    <ClCompile Include="validation.cpp" />
   </ItemGroup>
 </Project>

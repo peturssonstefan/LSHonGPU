@@ -83,34 +83,33 @@ Point* blockReduce(Point* val, int k, float maxValue) {
 
 
 __inline__ __device__
-void subSort(Point& val, int size) {
+void subSort(Point& val, int size, int lane) {
 
 	for (int offset = size / 2; offset > 0; offset /= 2) {
-		//int otherTid = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, size);
-		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, size);
-		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, size);
+		
+		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
+		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
+		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
+		val.ID = lane < otherID ? 
+			val.distance > distance ? val.ID : ID 
+			: val.distance < distance ? val.ID : ID;
 
-		if (threadIdx.x < __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, size)) {
-			val.ID = val.distance > distance ? val.ID : ID;
-			val.distance = val.distance > distance ? val.distance : distance;
-		}
-		else {
-			val.ID = val.distance < distance ? val.ID : ID;
-			val.distance = val.distance < distance ? val.distance : distance;
-		}
-
+		val.distance = lane < otherID ?
+			val.distance > distance ? val.distance : distance
+			: val.distance < distance ? val.distance : distance;
 	}
 }
 
 __inline__ __device__
-void subSortUnrolled(Point& val) {
+void subSortUnrolled(Point& val, int lane) {
 
 	for (int offset = WARPSIZE / 2; offset > 0; offset /= 2) {
-		//int otherTid = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
+
+		int otherID = __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);//lane ^ offset;
 		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
 		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
 
-		if (threadIdx.x < __shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE)) {
+		if (threadIdx.x < otherID) {
 			val.ID = val.distance > distance ? val.ID : ID;
 			val.distance = val.distance > distance ? val.distance : distance;
 		}
@@ -144,7 +143,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
 			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
 			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			subSort(val[i], pairSize * 2);
+			subSort(val[i], pairSize * 2, params.lane); 
 		}
 	}
 
@@ -181,7 +180,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
 		//#pragma unroll
 		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-			subSortUnrolled(val[i]);
+			subSortUnrolled(val[i], params.lane);
 		}
 	}
 }
@@ -217,5 +216,6 @@ void insertionSort(Point* threadQueue, Point swapPoint) {
 __inline__ __device__
 void startSort(Point* threadQueue, Point swapPoint, Parameters& params) {
 	insertionSort(threadQueue, swapPoint);
+	//simpleSort(threadQueue, swapPoint);
 	laneStrideSort(threadQueue, swapPoint, params);
 }

@@ -108,9 +108,11 @@
     <ClInclude Include="simHash.cuh" />
     <ClInclude Include="simpleLinearScan.cuh" />
     <ClInclude Include="sortParameters.h" />
+    <ClInclude Include="validation.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />
+    <ClCompile Include="validation.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
