@@ -7,15 +7,25 @@
 
 using namespace std;
 
-class Point
+struct Point{
+    int ID;
+    float distance;
+};
+
+class PointValidation
 {
     public:
         int ID;
         float Distance;
 
         //Overload < operator
-        bool operator<(const Point& other) const {
+        bool operator<(const PointValidation& other) const {
             return this->ID < other.ID;
+        }
+
+        void setFieldsFromPoint(Point p){
+            this->ID = p.ID;
+            this->Distance = p.distance;
         }
 
 };
@@ -24,9 +34,28 @@ class QueryResult{
     
     public:
         string queryId;
-        set<Point> NN;
+        set<PointValidation> NN;
 };
 
+
+vector<QueryResult> readData(Point* data, int N_queries ,int k, int reportK){
+    vector<QueryResult> parsedData(N_queries); 
+    for(int queryID = 0; queryID < N_queries; queryID++){
+        QueryResult qRes;
+        qRes.queryId = to_string(queryID) + ":";
+        for(int i = 0; i < reportK; i++){
+            PointValidation pVal;
+
+            pVal.setFieldsFromPoint(data[queryID * k + i]);
+
+            qRes.NN.insert(pVal);
+        }
+
+        parsedData[queryID] = qRes;
+    }
+
+    return parsedData;
+}
 
 vector<QueryResult> readData(char* filename){
     ifstream file;
@@ -43,25 +72,25 @@ vector<QueryResult> readData(char* filename){
     string queryId;
     for(int queryNum = 0; queryNum < n; queryNum++){
         file >> queryId;
-        set<Point> pointSet;        
+        set<PointValidation> pointValidationSet;        
         for(int resultNum = 0; resultNum < k; resultNum++){
-            Point p;
+            PointValidation p;
 
-            int pointId = 0;
-            float pointDistance = 0.0;
+            int pointValidationId = 0;
+            float pointValidationDistance = 0.0;
 
-            file >> pointId;
-            file >> pointDistance;
+            file >> pointValidationId;
+            file >> pointValidationDistance;
 
-            p.ID = pointId;
-            p.Distance = pointDistance;
+            p.ID = pointValidationId;
+            p.Distance = pointValidationDistance;
 
-            pointSet.insert(p);
+            pointValidationSet.insert(p);
         }
 
         QueryResult result;
         result.queryId = queryId;
-        result.NN = pointSet;
+        result.NN = pointValidationSet;
 
         results[queryNum] = result;
     }
@@ -71,16 +100,16 @@ vector<QueryResult> readData(char* filename){
 
 void printData(vector<QueryResult> data){    
     for(int i = 0; i < data.size(); i++){
-        set<Point> pSet = data[i].NN;
+        set<PointValidation> pSet = data[i].NN;
         
         cout << data[i].queryId << endl;
 
-        // Creating a iterator pointing to start of set
-        set<Point>::iterator it = pSet.begin();
+        // Creating a iterator pointValidationing to start of set
+        set<PointValidation>::iterator it = pSet.begin();
         // Iterate till the end of set
         while (it != pSet.end())
         {   
-            Point p = (*it);
+            PointValidation p = (*it);
             // Print the element
             cout << p.ID << " " << p.Distance << endl;;
             //Increment the iterator
@@ -95,17 +124,17 @@ void calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
         QueryResult result = results[queryNum];
         QueryResult truth = truths[queryNum];
 
-        // Creating a iterator pointing to start of set
-        set<Point>::iterator it = truth.NN.begin();
+        // Creating a iterator pointValidationing to start of set
+        set<PointValidation>::iterator it = truth.NN.begin();
 
-        set<Point>::iterator findIt;
+        set<PointValidation>::iterator findIt;
 
         float recalledElements = 0;
 
         // Iterate till the end of set
         while (it != truth.NN.end())
         {   
-            Point p = (*it);
+            PointValidation p = (*it);
             
             findIt = result.NN.find(p);
 
@@ -123,6 +152,15 @@ void calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
     }
 
     cout << "Averge recall: " << totalRecall / truths.size() << endl;
+}
+
+// Function for calling into the framework from KNN framework
+void runValidation(Point* truths, Point* results, int N_queries, int k, int reportK){
+
+    vector<QueryResult> truthsVal = readData(truths, N_queries, k, reportK);
+    vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
+
+    calculateRecall(truthsVal, resultsVal);
 }
 
 int main(int argc, char** args){
