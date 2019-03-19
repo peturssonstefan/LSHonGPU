@@ -17,8 +17,9 @@
 #include "memOptimizedLinearScan.cuh"
 #include "launchHelper.cuh"
 #include "validation.h"
+#include "weightedMinHash.cuh"
 
-char* implementations[3] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan" };
+char* implementations[4] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash" };
 
 int main(int argc, char **argv)
 {
@@ -61,6 +62,10 @@ int main(int argc, char **argv)
 		break;
 	case 3: 
 		res = runSimHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
+		break;
+	case 4:
+		printf("Running min hash \n");
+		res = runWeightedMinHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
 		break;
 	default:
 		printf("Invalid implementation selected. \n");

@@ -156,5 +156,8 @@ Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_da
 	CUDA_CHECK_RETURN(cudaFree(dev_results));
 	CUDA_CHECK_RETURN(cudaDeviceReset());
 
+	free(sketchedData);
+	free(sketchedQuery);
+
 	return results;
 }

@@ -86,6 +86,7 @@
     <CudaCompile Include="optimizedLinearScan.cu" />
     <CudaCompile Include="simHash.cu" />
     <CudaCompile Include="simpleLinearScan.cu" />
+    <CudaCompile Include="weightedMinHash.cu" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ThesisParser\ThesisParser.vcxproj">
@@ -109,6 +110,7 @@
     <ClInclude Include="simpleLinearScan.cuh" />
     <ClInclude Include="sortParameters.h" />
     <ClInclude Include="validation.h" />
+    <ClInclude Include="weightedMinHash.cuh" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />

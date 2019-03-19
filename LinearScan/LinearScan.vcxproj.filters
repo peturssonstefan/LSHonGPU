@@ -17,6 +17,9 @@
     <CudaCompile Include="memOptimizedLinearScan.cu">
       <Filter>scanners</Filter>
     </CudaCompile>
+    <CudaCompile Include="weightedMinHash.cu">
+      <Filter>minhash</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="parsing">
@@ -33,6 +36,9 @@
     </Filter>
     <Filter Include="utils">
       <UniqueIdentifier>{b3ecdd04-7680-4a27-ac42-aab61619440c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="minhash">
+      <UniqueIdentifier>{2ef088cd-dc89-4b8e-ac69-59577a27e513}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -80,6 +86,9 @@
       <Filter>utils</Filter>
     </ClInclude>
     <ClInclude Include="validation.h" />
+    <ClInclude Include="weightedMinHash.cuh">
+      <Filter>minhash</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />
