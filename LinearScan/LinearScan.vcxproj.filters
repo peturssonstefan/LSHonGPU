@@ -89,6 +89,12 @@
     <ClInclude Include="weightedMinHash.cuh">
       <Filter>minhash</Filter>
     </ClInclude>
+    <ClInclude Include="processingUtils.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="distanceFunctions.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />

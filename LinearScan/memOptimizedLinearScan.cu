@@ -11,7 +11,8 @@
 #include "sortParameters.h"
 #include "sortingFramework.cuh"
 #include "launchHelper.cuh"
-
+#include "processingUtils.cuh"
+#include "distanceFunctions.cuh"
 
 #define CUDA_CHECK_RETURN(value){ \
 	cudaError_t _m_cudaStat = value; \
@@ -29,7 +30,7 @@ void printQueue(Point* queue) {
 }
 
 __global__
-void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result) {
+void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
 	
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
@@ -55,7 +56,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	float magnitude_query = 0;
 	float dotProduct = 0;
 	float magnitude_data = 0.0;
-	float angular_distance = 0.0;
+	float distance = 0.0;
 
 
 	for (int j = 0; j < dimensions; j++) {
@@ -66,20 +67,18 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 	//Iterate over data; 
 	for (int i = lane; i < nData; i += WARPSIZE) {
-		dotProduct = 0; // reset value.
-		magnitude_data = 0.0; // reset value.
-		angular_distance = 0.0; // reset value.
 
+		switch (func) {
+			case 1:
+				distance = angularDistance(&dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
+				break; 
+			case 2: 
+				distance = generalizedJaccardDistance(&dataPoints[i*dimensions], &queryPoints[queryId], dimensions);
+				break;
+			default: printf("Invalid operation selected for distance function \n"); return;
+		}	
 
-		for (int j = 0; j < dimensions; j++) {
-			dotProduct += queryPoints[queryId + j] * dataPoints[dimensions*i + j];
-			magnitude_data += dataPoints[dimensions*i + j] * dataPoints[dimensions*i + j];
-		}
-
-		magnitude_data = sqrt(magnitude_data);
-		angular_distance = -(dotProduct / (magnitude_query * magnitude_data));
-
-		Point currentPoint = createPoint(i, angular_distance);
+		Point currentPoint = createPoint(i, distance);
 		//for (int j = candidateSetSize-1; j >= 0 ; j--) { // simple sorting.
 		//	if (currentPoint.distance < threadQueue[j].distance) {
 		//		swapPoint = threadQueue[j];
@@ -95,20 +94,25 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		//	//printQueue(threadQueue);
 		//}
 		
+		//With buffer 
 		if (currentPoint.distance < maxKDistance) {
 			threadQueue[queuePosition++] = currentPoint;
 		}
 
-		if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && i < (nData - 1) - WARPSIZE) {
+		
+
+		if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK ) {
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
 			//printQueue(threadQueue);
 			queuePosition = 0;
 		}
+
+
 	}
 
 	startSort(threadQueue, swapPoint, params);
-
+	
 	//Copy result from warp queues to result array in reverse order. 
 	int kIdx = (WARPSIZE - lane) - 1; 
 	int warpQueueIdx = THREAD_QUEUE_SIZE - 1;
@@ -120,7 +124,13 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 }
 
-Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries) {
+__global__
+void preprocess(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int* minValues)
+{
+	transformData(dataPoints, queryPoints, nData, nQueries, dimensions, minValues);
+}
+
+Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc) {
 	CUDA_CHECK_RETURN(cudaSetDevice(0));
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
@@ -140,15 +150,36 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	Point* dev_result = 0;
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_result, resultSize * sizeof(Point)));
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_result, resultArray, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
+
+	if (distanceFunc == 2) {
+		printf("Starting preprocess \n");
+		int* test = 0;
+		CUDA_CHECK_RETURN(cudaMalloc((void**)&test, d * sizeof(int)));
+		preprocess << <1, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, test);
+		CUDA_CHECK_RETURN(cudaGetLastError());
+		CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+		printf("Done preprocessing \n");
+	}
+
+	printf("Launching KNN \n");
 	clock_t before = clock();
-	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result);
+	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	CUDA_CHECK_RETURN(cudaGetLastError());
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 
 	clock_t time_lapsed = clock() - before;
 	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+	CUDA_CHECK_RETURN(cudaMemcpy(data, dev_data_points, N_data * d * sizeof(float), cudaMemcpyDeviceToHost));
 
 	CUDA_CHECK_RETURN(cudaMemcpy(resultArray, dev_result, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
+
+	//for (int i = 0; i < N_data; i++) {
+	//	printf("%d ", i);
+	//	for (int j = 0; j < d; j++) {
+	//		printf("%f ", data[i * d + j]);
+	//	}
+	//	printf("\n");
+	//}
 
 	//Free memory... 
 	CUDA_CHECK_RETURN(cudaFree(dev_query_points));

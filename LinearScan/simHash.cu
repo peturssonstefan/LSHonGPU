@@ -20,6 +20,7 @@
 	} \
 }\
 
+#define DISTANCE_FUNCTION 1
 
 __global__
 void sketch(float* data, float* randomVectors, int size, int dimensions, int sketchDim, unsigned long* sketchedData) {
@@ -73,7 +74,7 @@ void scan(float* originalData, float* originalQueries, int dimensions, unsigned 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions; 
 	if (queryIndex < dimensions * N_query) {
-		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, result);
+		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION,result);
 	}
 }
 

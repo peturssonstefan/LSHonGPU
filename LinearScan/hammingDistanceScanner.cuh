@@ -10,7 +10,7 @@
 #include "candidateSetScanner.cuh"
 
 __inline__ __device__
-void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned long * data, unsigned long * queries, int sketchDim, int nData, int N_query, int k, Point* result)
+void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned long * data, unsigned long * queries, int sketchDim, int nData, int N_query, int k, int distFunc,Point* result)
 {
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE; 
@@ -53,7 +53,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 		}
 
 		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && i < (nData - 1) - WARPSIZE) { 
+		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
 		}
@@ -64,9 +64,13 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	//Sort before candidateSetScan if we only do exact calculations on warp queue elements.
 
 	//Candidate set scan.
-	candidateSetScan(originalData, originalQuery, dimensions, threadQueue, k);
+	candidateSetScan(originalData, originalQuery, dimensions, threadQueue, k, distFunc);
 
 	startSort(threadQueue, swapPoint, params);
+
+	//for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+
+	//}
 
 	//Copy result from warp queues to result array in reverse order. 
 	int kIdx = (WARPSIZE - lane) - 1;
@@ -80,7 +84,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 }
 
 __inline__ __device__
-void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned char * data, unsigned char * queries, int sketchDim, int nData, int N_query, int k, Point* result)
+void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned char * data, unsigned char * queries, int sketchDim, int nData, int N_query, int k, int distFunc,Point* result)
 {
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE;
@@ -123,7 +127,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 		}
 
 		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && i < (nData - 1) - WARPSIZE) {
+		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
 		}
@@ -134,7 +138,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	//Sort before candidateSetScan if we only do exact calculations on warp queue elements.
 
 	//Candidate set scan.
-	candidateSetScan(originalData, originalQuery, dimensions, threadQueue, k);
+	candidateSetScan(originalData, originalQuery, dimensions, threadQueue, k, distFunc);
 
 	startSort(threadQueue, swapPoint, params);
 

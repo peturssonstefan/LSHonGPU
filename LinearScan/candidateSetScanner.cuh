@@ -5,9 +5,10 @@
 #include <math.h>
 #include "constants.cuh"
 #include "pointExtensions.cuh"
+#include "distanceFunctions.cuh"
 
 __inline__ __device__
-void candidateSetScan(float* data, float* query, int dimensions, Point* candidates, int k) {
+void candidateSetScan(float* data, float* query, int dimensions, Point* candidates, int k, int distFunc) {
 	
 	float magnitude_query = 0;
 
@@ -18,19 +19,19 @@ void candidateSetScan(float* data, float* query, int dimensions, Point* candidat
 	magnitude_query = sqrt(magnitude_query);
 
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-		int index = candidates[i].ID * dimensions; 
-		float dotProduct = 0; // reset value.
-		float magnitude_data = 0.0; // reset value.
-		float angular_distance = 0.0; // reset value.
 
-		for (int j = 0; j < dimensions; j++) {
-			dotProduct += query[j] * data[index + j];
-			magnitude_data += data[index + j] * data[index + j];
+		int index = candidates[i].ID * dimensions; 
+		float distance = 0.0; // reset value.
+
+		switch (distFunc) {
+		case 1:
+			distance = angularDistance(&data[index], query, dimensions, magnitude_query);
+			break;
+		case 2: distance = generalizedJaccardDistance(&data[index], query, dimensions);
+			break;
+		default: printf("Invalid operation selected for distance function \n"); return;
 		}
 
-		magnitude_data = sqrt(magnitude_data);
-		angular_distance = -(dotProduct / (magnitude_query * magnitude_data));
-
-		candidates[i].distance = angular_distance; 
+		candidates[i].distance = candidates[i].ID < 0 ? (float)INT_MAX : distance;
 	}
 }

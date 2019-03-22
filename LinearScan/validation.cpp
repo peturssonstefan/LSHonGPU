@@ -152,7 +152,6 @@ void calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
 
 // Function for calling into the framework from KNN framework
 void runValidation(char* truths, Point* results, int N_queries, int k, int reportK){
-
     vector<QueryResult> truthsVal = readData(truths);
     vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
 

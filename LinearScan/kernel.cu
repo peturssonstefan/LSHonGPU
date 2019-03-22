@@ -19,6 +19,7 @@
 #include "validation.h"
 #include "weightedMinHash.cuh"
 
+
 char* implementations[4] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash" };
 
 int main(int argc, char **argv)
@@ -30,9 +31,11 @@ int main(int argc, char **argv)
 	int shouldRunValidation = atoi(argv[4]);
 	int writeRes = atoi(argv[5]); //1 for yes, 0 for no.
 	char* _k = argv[6];
+	
 	int implementation = atoi(argv[7]);
 	int reportK = atoi(_k);
 	int k = calculateK(reportK);
+	int distanceFunc = atoi(argv[9]); 
 	int N_data = 0;
 	int N_query = 0;
 	int d = 0;
@@ -48,6 +51,9 @@ int main(int argc, char **argv)
 	printf("N_Data = %d \n", N_data);
 	printf("k is set to: %d\n", k);
 	printf("Write res is set to %s \n", writeRes ? "True" : "False");
+	printf("Validation is set to %s \n", shouldRunValidation ? "True" : "False");
+	printf("Truth file is %s \n", filepath_truth);
+
 
 	printf("Implementation selected = %s\n", implementations[implementation-1]); 
 	Point* res; 
@@ -58,7 +64,7 @@ int main(int argc, char **argv)
 		res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
 		break;
 	case 2:
-		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries);
+		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries, distanceFunc);
 		break;
 	case 3: 
 		res = runSimHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);

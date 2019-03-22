@@ -96,6 +96,7 @@
   <ItemGroup>
     <ClInclude Include="candidateSetScanner.cuh" />
     <ClInclude Include="constants.cuh" />
+    <ClInclude Include="distanceFunctions.cuh" />
     <ClInclude Include="gloveparser.cuh" />
     <ClInclude Include="hammingDistanceScanner.cuh" />
     <ClInclude Include="launchHelper.cuh" />
@@ -104,6 +105,7 @@
     <ClInclude Include="point.h" />
     <ClInclude Include="pointExtensions.cuh" />
     <ClInclude Include="pointWithIndex.h" />
+    <ClInclude Include="processingUtils.cuh" />
     <ClInclude Include="resultWriter.h" />
     <ClInclude Include="sortingFramework.cuh" />
     <ClInclude Include="simHash.cuh" />

@@ -13,6 +13,7 @@
 #include "launchHelper.cuh"
 #include <curand.h>
 #include <curand_kernel.h>
+#include "processingUtils.cuh"
 
 
 #define CUDA_CHECK_RETURN(value){ \
@@ -24,38 +25,14 @@
 }\
 
 
+#define DISTANCE_FUNCTION 2
+
 __global__
-void transformData(float* data, float* queries, int N_data, int N_queries, int dimensions,int* m_bounds, int* m_indexMapSize) {
+void preprocess(float* data, float* queries, int N_data, int N_queries, int dimensions,int* m_bounds, int* m_indexMapSize) {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 	int totalThreads = blockDim.x * gridDim.x;
 	
-	// Find min
-	for (int i = threadId; i < N_data; i += totalThreads) {
-		for (int dim = 0; dim < dimensions; dim++) {
-			atomicMin(&m_bounds[dim], (int)data[i * dimensions + dim]); // floor by casting
-		}
-	}
-
-	for (int i = threadId; i < N_queries; i += totalThreads) {
-		for (int dim = 0; dim < dimensions; dim++) {
-			atomicMin(&m_bounds[dim], (int)queries[i * dimensions + dim]); // floor by casting
-		}
-	}
-
-	__syncthreads();
-
-	// Transform data
-	for (int i = threadId; i < N_data; i += totalThreads) {
-		for (int dim = 0; dim < dimensions; dim++) {
-			data[i * dimensions + dim] += abs(m_bounds[dim]);
-		}
-	}
-
-	for (int i = threadId; i < N_queries; i += totalThreads) {
-		for (int dim = 0; dim < dimensions; dim++) {
-			queries[i * dimensions + dim] += abs(m_bounds[dim]);
-		}
-	}
+	transformData(data, queries, N_data, N_queries, dimensions, m_bounds); 
 
 	__syncthreads();
 
@@ -80,6 +57,8 @@ void transformData(float* data, float* queries, int N_data, int N_queries, int d
 			m_indexMapSize[0] += m_bounds[i];
 		}
 	}
+
+	__syncthreads();
 }
 
 __global__
@@ -89,7 +68,12 @@ void setupMapIndex(int* m_bounds, int* indexToComponentMap, int dimensions, int 
 		for (int i = 0; i < dimensions; i++) {
 			int bound = currentBound + m_bounds[i];
 			for (int j = currentBound; j < bound; j++) {
-				indexToComponentMap[j] = i;
+				if (j >= indexMapSize) {
+					printf("j = %d and bounds[%d] = %d", j, i, m_bounds[i]);
+				}
+				else {
+					indexToComponentMap[j] = i;
+				}
 			}
 
 			m_bounds[i] = currentBound;
@@ -140,7 +124,6 @@ void sketchData(float* data, int N_data, int dimensions, int sketchDim ,int* m_i
 				seed = random * 10000;
 				if (red) {
 					char val = sketchedData[i * sketchDim + hashIdx]; 
-					if (val == 255) printf("val is 255 for thread %d \n", threadId); 
 					sketchedData[i * sketchDim + hashIdx]++;
 				}
 			}
@@ -153,7 +136,7 @@ void scan(float* originalData, float* originalQueries, int dimensions, unsigned 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions;
 	if (queryIndex < dimensions * N_query) {
-		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, result);
+		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION,result);
 	}
 }
 
@@ -211,7 +194,7 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_m_IndexMapSizeArr, sizeof(int)));
 
 	// Transform data
-	transformData << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d, dev_m_bounds, dev_m_IndexMapSizeArr);
+	preprocess << <1, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d, dev_m_bounds, dev_m_IndexMapSizeArr);
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 	CUDA_CHECK_RETURN(cudaGetLastError());
 	CUDA_CHECK_RETURN(cudaMemcpy(m_indexMapSizeArr, dev_m_IndexMapSizeArr,sizeof(int), cudaMemcpyDeviceToHost));
@@ -222,7 +205,7 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	int* m_IndexMap = (int*)malloc(m_indexMapSize * sizeof(int));
 	int* dev_m_indexMap;
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_m_indexMap, m_indexMapSize * sizeof(int)));
-	setupMapIndex << <numberOfBlocks, numberOfThreads >> > (dev_m_bounds, dev_m_indexMap, d, m_indexMapSize);
+	setupMapIndex << <1, 1 >> > (dev_m_bounds, dev_m_indexMap, d, m_indexMapSize); //
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 	CUDA_CHECK_RETURN(cudaGetLastError());
 
@@ -251,17 +234,14 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	Point* results = (Point*)malloc(resultSize * sizeof(Point));
 	Point* dev_results;
 	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_results, resultSize * sizeof(Point)));
-
-	printf("Starting linear scan\n");
-
+	printf("Done sketching \n Starting scan \n");
 	scan << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_queries, d, dev_sketchedData, dev_sketchedQueries, sketchedDim, N_data, N_query, k, dev_results);
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 	CUDA_CHECK_RETURN(cudaGetLastError());
 
-	printf("Done scan\n");
-
 	CUDA_CHECK_RETURN(cudaMemcpy(results, dev_results, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
 
+	printf("Done with scan \n");
 	//Close
 	CUDA_CHECK_RETURN(cudaFree(dev_data));
 	CUDA_CHECK_RETURN(cudaFree(dev_queries));
@@ -276,6 +256,5 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	free(sketchedData);
 	free(sketchedQueries);
 	free(m_bounds);
-	printf("Got here\n");
 	return results;
 }
