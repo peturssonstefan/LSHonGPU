@@ -83,20 +83,48 @@ Point* blockReduce(Point* val, int k, float maxValue) {
 
 
 __inline__ __device__
-void subSort(Point& val, int size, int lane) {
+void setLane(Point& val, int lane, int otherLane, int otherId, float distance) {
+	if (lane < otherLane) {
+		if (!(val.distance > distance)) {
+			val.ID = otherId;
+			val.distance = distance; 
+		}
+	}
+	else {
+		if (!(val.distance < distance)) {
+			val.ID = otherId;
+			val.distance = distance;
+		}
+	}
+}
+
+__inline__ __device__
+void subSort(int& valId, float& valDistance ,int size, int lane) {
 
 	for (int offset = size / 2; offset > 0; offset /= 2) {
 		
 		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
-		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
-		val.ID = lane < otherID ? 
-			val.distance > distance ? val.ID : ID 
-			: val.distance < distance ? val.ID : ID;
+		int ID = __shfl_xor_sync(FULL_MASK, valId, offset, WARPSIZE);
+		float distance = __shfl_xor_sync(FULL_MASK, valDistance, offset, WARPSIZE);
+		
+		bool direction = lane < otherID;
+		bool distanceDirection = valDistance > distance;
 
-		val.distance = lane < otherID ?
-			val.distance > distance ? val.distance : distance
-			: val.distance < distance ? val.distance : distance;
+		int id = direction ? 
+			distanceDirection ? valId : ID 
+			: !distanceDirection ? valId : ID;
+
+		float distanceVal = direction ?
+			distanceDirection ? valDistance : distance
+			: !distanceDirection ? valDistance : distance;
+
+		
+		valId = id;
+		valDistance = distanceVal;
+
+
+		//setLane(val, lane, otherID, ID, distance); 
+
 	}
 }
 
@@ -143,7 +171,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
 			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
 			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			subSort(val[i], pairSize * 2, params.lane); 
+			subSort(val[i].ID, val[i].distance, pairSize * 2, params.lane); 
 		}
 	}
 

@@ -84,51 +84,66 @@ void setupMapIndex(int* m_bounds, int* indexToComponentMap, int dimensions, int 
 
 __inline__ __device__
 float uniformRandom(curandState* state, int seed) {
-	curand_init(seed,0, 0, &state[0]); 
 	float val = curand_uniform(state); 
 	return val; 
 }
 
 __inline__ __device__ 
-bool isGreen(int* m_indexMap, int* m_bounds, float* data, int r, int i, int d) {
-	int componentIdx = m_indexMap[r];
+bool isGreen(int* m_indexMap, int* m_bounds, float* data, float r, int i, int d) {
+	int rIdx = r + 1;
+	int componentIdx = m_indexMap[rIdx];
 	int m_bounds_val = m_bounds[componentIdx];
 	float pointDI = data[i*d + componentIdx];
-
-	/*if (threadIdx.x == 0) {
-		printf("Recieved r: %d \n", r);
-		printf("componentIdx is: %d \n", componentIdx);
-		printf("m_bounds_val: %d \n", m_bounds_val);
-		printf("pointDI: %f \n", pointDI);
-		printf("isRed = %d\n \n", r <= m_bounds_val + pointDI);
-	}*/
 	return r <= m_bounds_val + pointDI; 
 
 }
 
+
 __global__
-void sketchData(float* data, int N_data, int dimensions, int sketchDim ,int* m_indexMap, int* m_bounds, int M, int* seeds, unsigned char* sketchedData) {
+void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_indexMap, int* m_bounds, int M, int* seeds, unsigned char* sketchedData) {
 	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int totalThreads = blockDim.x * gridDim.x;
-	curandState s; 
 
 	for (int i = threadId; i < N_data; i += totalThreads) {
 		for (int hashIdx = 0; hashIdx < sketchDim; hashIdx++) {
-			int seed = seeds[hashIdx];
-			bool red = true;
 
-			while (red) {
-				float random = uniformRandom(&s, seed);
-				int r = M * random;
-				red = !isGreen(m_indexMap, m_bounds, data, r, i, dimensions);
-				seed = random * 10000;
-				if (red) {
-					char val = sketchedData[i * sketchDim + hashIdx]; 
-					sketchedData[i * sketchDim + hashIdx]++;
+			for (int bitIndex = 0; bitIndex < 8; bitIndex++) {
+				int seed = seeds[hashIdx * 8 + bitIndex];
+				curandState s;
+				curand_init(seed, 0, 10000, &s);
+				bool red = true;
+				int counter = 0;
+				float r = 0;
+				while (red) {
+					float random = uniformRandom(&s, seed);
+					r = M * random;
+					red = !isGreen(m_indexMap, m_bounds, data, r, i, dimensions);
+					if (red) {
+						char val = sketchedData[i * sketchDim + hashIdx];
+						counter++;
+					}
 				}
+
+				if (counter > 0) {
+					//if (threadId == 0) printf("counter: %d, bitindex: %d, seed: %d, r: %d  \n", counter, bitIndex, seed, r);
+					sketchedData[i * sketchDim + hashIdx] |= 1 << bitIndex;
+				}
+
 			}
+
+
 		}
 	}
+
+	//if (threadId == 0) {
+	//	for (int i = 0; i < sketchDim * N_data; i++) {
+	//		for (int bitIndex = 7; bitIndex >= 0; bitIndex--)
+	//			printf("%d", (sketchedData[i] >> bitIndex) & 1);
+	//			//printf("%d \n", sketchedData[i]);
+	//		printf("\n");
+	//	}
+	//}
+
 }
 
 __global__
@@ -141,7 +156,7 @@ void scan(float* originalData, float* originalQueries, int dimensions, unsigned 
 }
 
 Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
-	int componentSize = sizeof(unsigned char);
+	int componentSize = 8;
 
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
@@ -164,15 +179,16 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	CUDA_CHECK_RETURN(cudaMemcpy(dev_queries, queries, querySize * sizeof(float), cudaMemcpyHostToDevice));
 	
 	//Seeds
-	int* seedArr = (int*)malloc(sketchedDim * sizeof(int));
+	int seedArrSize = sketchedDim * componentSize;
+	int* seedArr = (int*)malloc(seedArrSize * sizeof(int));
 	int* dev_seedArr;
 
-	for (int i = 0; i < sketchedDim; i++) {
-		seedArr[i] = i * 1234; 
+	for (int i = 0; i < seedArrSize; i++) {
+		seedArr[i] = i * 1234 + 92138;
 	}
 
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_seedArr, sketchedDim * sizeof(int)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_seedArr, seedArr, sketchedDim * sizeof(int), cudaMemcpyHostToDevice));
+	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_seedArr, seedArrSize * sizeof(int)));
+	CUDA_CHECK_RETURN(cudaMemcpy(dev_seedArr, seedArr, seedArrSize * sizeof(int), cudaMemcpyHostToDevice));
 
 	//Sketch arrays
 	int sketchedDataSize = N_data * sketchedDim;

@@ -16,7 +16,7 @@ class PointValidation
 
         //Overload < operator
         bool operator<(const PointValidation& other) const {
-            return this->ID < other.ID;
+			return this->ID < other.ID;
         }
 
         void setFieldsFromPoint(Point p){
@@ -150,10 +150,58 @@ void calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
     cout << "Averge recall: " << totalRecall / truths.size() << endl;
 }
 
+void calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> results) {
+	
+	float totalAverage = 0;
+	for (int queryNum = 0; queryNum < truths.size(); queryNum++) {
+		QueryResult result = results[queryNum];
+		QueryResult truth = truths[queryNum];
+
+		float truthsDistance = 0;
+		float resultsDistance = 0;
+
+		// Creating a iterator pointValidationing to start of set
+		set<PointValidation>::iterator it = truth.NN.begin();
+
+		// Iterate till the end of set
+		while (it != truth.NN.end())
+		{
+			PointValidation p = (*it);
+
+			truthsDistance += p.Distance;
+
+			//Increment the iterator
+			it++;
+		}
+
+		set<PointValidation>::iterator resIt = result.NN.begin();
+
+		// Iterate till the end of set
+		while (resIt != result.NN.end())
+		{
+			PointValidation p = (*resIt);
+
+			resultsDistance += p.Distance;
+
+			//Increment the iterator
+			resIt++;
+		}
+
+		float distanceRatio = resultsDistance / truthsDistance;
+		//printf("Query: %s = %f resdist: %f truthsDist: %f\n", truth.queryId, distanceRatio, resultsDistance, truthsDistance);
+
+		totalAverage += distanceRatio;
+	}
+
+	cout << "Total average: " << totalAverage / truths.size() << endl;
+
+}
+
 // Function for calling into the framework from KNN framework
 void runValidation(char* truths, Point* results, int N_queries, int k, int reportK){
     vector<QueryResult> truthsVal = readData(truths);
     vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
 
     calculateRecall(truthsVal, resultsVal);
+	calculateDistanceRatio(truthsVal, resultsVal);
 }

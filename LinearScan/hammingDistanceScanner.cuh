@@ -33,7 +33,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	for (int i = lane; i < nData; i += WARPSIZE) {
 		int hammingDistance = 0;
 
-#pragma unroll
+//#pragma unroll
 		for (int j = 0; j < sketchDim; j++) {
 			unsigned long queryValue = queries[queryIdx + j];
 			unsigned long dataValue = data[sketchDim*i + j]; 
@@ -107,7 +107,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	for (int i = lane; i < nData; i += WARPSIZE) {
 		int hammingDistance = 0;
 
-#pragma unroll
+//#pragma unroll
 		for (int j = 0; j < sketchDim; j++) {
 			unsigned int queryValue = queries[queryIdx + j];
 			unsigned int dataValue = data[sketchDim*i + j];

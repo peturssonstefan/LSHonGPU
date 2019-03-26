@@ -20,5 +20,6 @@ if($compile){
 $fileexe = ".\knn.exe"
 
 Write-Host "Running program" -ForegroundColor Green
+Write-Host "$($fileexe) ..\datasets\$($dataset)_data.txt ..\datasets\$($dataset)_queries.txt ..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt $($validate) $($writeResults) $($k) $($implementation) $($bits) $($distanceFunc)" -ForegroundColor Green
 
 & $fileexe "..\datasets\$($dataset)_data.txt" "..\datasets\$($dataset)_queries.txt" "..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt" $validate $writeResults $k $implementation $bits $distanceFunc
