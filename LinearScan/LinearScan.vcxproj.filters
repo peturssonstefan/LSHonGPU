@@ -20,6 +20,9 @@
     <CudaCompile Include="weightedMinHash.cu">
       <Filter>minhash</Filter>
     </CudaCompile>
+    <CudaCompile Include="cudaHelpers.cu">
+      <Filter>utils</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="parsing">
@@ -93,6 +96,9 @@
       <Filter>utils</Filter>
     </ClInclude>
     <ClInclude Include="distanceFunctions.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="cudaHelpers.cuh">
       <Filter>utils</Filter>
     </ClInclude>
   </ItemGroup>

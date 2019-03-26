@@ -67,6 +67,9 @@ vector<QueryResult> readData(char* filename){
     file >> n;
     file >> k;
 
+
+    cout << n << " " << k << endl;
+
     vector<QueryResult> results(n);
 
     string queryId;

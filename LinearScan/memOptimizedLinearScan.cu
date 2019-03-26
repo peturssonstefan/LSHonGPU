@@ -13,14 +13,7 @@
 #include "launchHelper.cuh"
 #include "processingUtils.cuh"
 #include "distanceFunctions.cuh"
-
-#define CUDA_CHECK_RETURN(value){ \
-	cudaError_t _m_cudaStat = value; \
-	if (_m_cudaStat != cudaSuccess) { \
-		fprintf(stderr, "Error: %s \n Error Code %d \n Error is at line %d, in file %s \n", cudaGetErrorString(_m_cudaStat), _m_cudaStat, __LINE__ , __FILE__); \
-		exit(-1); \
-	} \
-}\
+#include "cudaHelpers.cuh"
 
 __inline__ __host__ __device__
 void printQueue(Point* queue) {
@@ -131,47 +124,37 @@ void preprocess(float* queryPoints, float* dataPoints, int nQueries, int nData, 
 }
 
 Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc) {
-	CUDA_CHECK_RETURN(cudaSetDevice(0));
+	setDevice();
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int resultSize = N_query * k;
 	Point *resultArray = (Point*)malloc(resultSize * sizeof(Point));
+	
 	// queries
-	float* dev_query_points = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_query_points, N_query * d * sizeof(float)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_query_points, queries, N_query * d * sizeof(float), cudaMemcpyHostToDevice));
-
+	float* dev_query_points = mallocArray(queries, N_query * d, true);
 	// data
-	float* dev_data_points = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_data_points, N_data * d * sizeof(float)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_data_points, data, N_data * d * sizeof(float), cudaMemcpyHostToDevice));
+	float* dev_data_points = mallocArray(data, N_data * d, true);
 
 	// result
-	Point* dev_result = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_result, resultSize * sizeof(Point)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_result, resultArray, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
+	Point* dev_result = mallocArray(resultArray, resultSize);
 
 	if (distanceFunc == 2) {
 		printf("Starting preprocess \n");
-		int* test = 0;
-		CUDA_CHECK_RETURN(cudaMalloc((void**)&test, d * sizeof(int)));
-		preprocess << <1, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, test);
-		CUDA_CHECK_RETURN(cudaGetLastError());
-		CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+		int* dev_minValues = mallocArray<int>(nullptr, d);
+		preprocess << <1, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, dev_minValues);
+		waitForKernel();
 		printf("Done preprocessing \n");
 	}
 
 	printf("Launching KNN \n");
 	clock_t before = clock();
 	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
-	CUDA_CHECK_RETURN(cudaGetLastError());
-	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+	waitForKernel();
 
 	clock_t time_lapsed = clock() - before;
 	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-	CUDA_CHECK_RETURN(cudaMemcpy(data, dev_data_points, N_data * d * sizeof(float), cudaMemcpyDeviceToHost));
-
-	CUDA_CHECK_RETURN(cudaMemcpy(resultArray, dev_result, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
+	
+	copyArrayToHost(resultArray, dev_result, resultSize);
 
 	//for (int i = 0; i < N_data; i++) {
 	//	printf("%d ", i);
@@ -182,11 +165,11 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	//}
 
 	//Free memory... 
-	CUDA_CHECK_RETURN(cudaFree(dev_query_points));
-	CUDA_CHECK_RETURN(cudaFree(dev_data_points));
-	CUDA_CHECK_RETURN(cudaFree(dev_result));
+	freeDeviceArray(dev_query_points);
+	freeDeviceArray(dev_data_points);
+	freeDeviceArray(dev_result);
 
-	CUDA_CHECK_RETURN(cudaDeviceReset());
+	resetDevice();
 
 	return resultArray; 
 }

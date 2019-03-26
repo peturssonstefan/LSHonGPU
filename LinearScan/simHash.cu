@@ -11,14 +11,7 @@
 #include "constants.cuh"
 #include "hammingDistanceScanner.cuh"
 #include "launchHelper.cuh"
-
-#define CUDA_CHECK_RETURN(value){ \
-	cudaError_t _m_cudaStat = value; \
-	if (_m_cudaStat != cudaSuccess) { \
-		fprintf(stderr, "Error: %s \n Error Code %d \n Error is at line %d, in file %s \n", cudaGetErrorString(_m_cudaStat), _m_cudaStat, __LINE__ , __FILE__); \
-		exit(-1); \
-	} \
-}\
+#include "cudaHelpers.cuh"
 
 #define DISTANCE_FUNCTION 1
 
@@ -82,6 +75,7 @@ void scan(float* originalData, float* originalQueries, int dimensions, unsigned 
 
 Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
 
+	setDevice();
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int bits = sketchedDim * SKETCH_COMP_SIZE;
@@ -93,72 +87,64 @@ Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_da
 	int threadQueueSize = N_query * numberOfThreads * k; 
 	int resultSize = N_query * k; 
 	float* randomVectors = generateRandomVectors(randomVectorsSize);
-	CUDA_CHECK_RETURN(cudaSetDevice(0));
+
 	//Setup random vector array.
-	float* dev_randomVectors = 0; 
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_randomVectors, randomVectorsSize * sizeof(float)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_randomVectors, randomVectors, randomVectorsSize * sizeof(float), cudaMemcpyHostToDevice));
+	float* dev_randomVectors = mallocArray(randomVectors, randomVectorsSize, true);
 	
 	//Setup data array.
-	float* dev_data = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_data, dataSize * sizeof(float)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_data, data, dataSize * sizeof(float), cudaMemcpyHostToDevice));
+	float* dev_data = mallocArray(data, dataSize, true);
 
 	//Setup query array.
-	float* dev_queries = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_queries, querySize * sizeof(float)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_queries, queries, querySize * sizeof(float), cudaMemcpyHostToDevice));
+	float* dev_queries = mallocArray(queries, querySize, true);
 
 	//Setup sketchedData array.
 	unsigned long* sketchedData = (unsigned long*)malloc(sketchedDataSize * sizeof(unsigned long));
-	unsigned long* dev_sketchedData = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_sketchedData, sketchedDataSize * sizeof(unsigned long)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_sketchedData, sketchedData, sketchedDataSize * sizeof(unsigned long), cudaMemcpyHostToDevice));
+	unsigned long* dev_sketchedData = mallocArray(sketchedData, sketchedDataSize);
 
 	//Setup sketchedQuery array.
 	unsigned long* sketchedQuery = (unsigned long*)malloc(sketchedQuerySize * sizeof(unsigned long));
-	unsigned long* dev_sketchedQuery = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_sketchedQuery, sketchedQuerySize * sizeof(unsigned long)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_sketchedQuery, sketchedQuery, sketchedQuerySize * sizeof(unsigned long), cudaMemcpyHostToDevice));
+	unsigned long* dev_sketchedQuery = mallocArray(sketchedQuery, sketchedQuerySize);
+
 	clock_t before = clock();
 	printf("Started hashing \n");
 	sketch << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_randomVectors, N_data, d, sketchedDim, dev_sketchedData);
-	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
-	CUDA_CHECK_RETURN(cudaGetLastError());
-	printf("Done with first sketch \n");
+	waitForKernel(); 
+
 	sketch << <numberOfBlocks, numberOfThreads >> > (dev_queries, dev_randomVectors, N_query, d, sketchedDim, dev_sketchedQuery);
-	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
-	CUDA_CHECK_RETURN(cudaGetLastError());
-	printf("Done sketching queries.\n");
+	waitForKernel(); 
+
+	printf("Done sketching.\n");
 	clock_t time_lapsed = clock() - before;
 	printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-	CUDA_CHECK_RETURN(cudaMemcpy(sketchedData, dev_sketchedData, sketchedDataSize * sizeof(long), cudaMemcpyDeviceToHost));
-	CUDA_CHECK_RETURN(cudaMemcpy(sketchedQuery, dev_sketchedQuery, sketchedQuerySize * sizeof(unsigned long), cudaMemcpyDeviceToHost));
 
+	copyArrayToHost(sketchedData, dev_sketchedData, sketchedDataSize);
+	copyArrayToHost(sketchedQuery, dev_sketchedQuery, sketchedQuerySize);
 
 	//Setup Result Array 
 	Point* results = (Point*)malloc(resultSize * sizeof(Point));
-	Point* dev_results = 0;
-	CUDA_CHECK_RETURN(cudaMalloc((void**)&dev_results, resultSize * sizeof(Point)));
-	CUDA_CHECK_RETURN(cudaMemcpy(dev_results, results, resultSize * sizeof(Point), cudaMemcpyHostToDevice));
+	Point* dev_results = mallocArray(results, resultSize);
+
 	printf("Calculating Distance. \n");
 	before = clock();
 	scan << <N_query, numberOfThreads >> > (dev_data, dev_queries, d, dev_sketchedData, dev_sketchedQuery, sketchedDim, N_data, N_query, k, dev_results);
-	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+	waitForKernel();
+
 	time_lapsed = clock() - before;
 	printf("Time to calculate distance on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-	CUDA_CHECK_RETURN(cudaMemcpy(results, dev_results, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
+
+	copyArrayToHost(results, dev_results, resultSize);
+
 
 	//Close
-	CUDA_CHECK_RETURN(cudaFree(dev_data));
-	CUDA_CHECK_RETURN(cudaFree(dev_queries));
-	CUDA_CHECK_RETURN(cudaFree(dev_sketchedData));
-	CUDA_CHECK_RETURN(cudaFree(dev_sketchedQuery));
-	CUDA_CHECK_RETURN(cudaFree(dev_results));
-	CUDA_CHECK_RETURN(cudaDeviceReset());
-
+	freeDeviceArray(dev_data);
+	freeDeviceArray(dev_queries);
+	freeDeviceArray(dev_sketchedData);
+	freeDeviceArray(dev_sketchedQuery);
+	freeDeviceArray(dev_results);
 	free(sketchedData);
 	free(sketchedQuery);
+
+	resetDevice();
 
 	return results;
 }

@@ -80,6 +80,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CudaCompile Include="cudaHelpers.cu" />
     <CudaCompile Include="gloveparser.cu" />
     <CudaCompile Include="kernel.cu" />
     <CudaCompile Include="memOptimizedLinearScan.cu" />
@@ -96,6 +97,7 @@
   <ItemGroup>
     <ClInclude Include="candidateSetScanner.cuh" />
     <ClInclude Include="constants.cuh" />
+    <ClInclude Include="cudaHelpers.cuh" />
     <ClInclude Include="distanceFunctions.cuh" />
     <ClInclude Include="gloveparser.cuh" />
     <ClInclude Include="hammingDistanceScanner.cuh" />
