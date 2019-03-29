@@ -107,6 +107,9 @@
     <ClInclude Include="sketchedDistanceScanners.cuh">
       <Filter>scanners</Filter>
     </ClInclude>
+    <ClInclude Include="launchDTO.h">
+      <Filter>models</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />

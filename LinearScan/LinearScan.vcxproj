@@ -100,6 +100,7 @@
     <ClInclude Include="cudaHelpers.cuh" />
     <ClInclude Include="distanceFunctions.cuh" />
     <ClInclude Include="gloveparser.cuh" />
+    <ClInclude Include="launchDTO.h" />
     <ClInclude Include="sketchedDistanceScanners.cuh" />
     <ClInclude Include="launchHelper.cuh" />
     <ClInclude Include="memOptimizedLinearScan.cuh" />

@@ -18,8 +18,12 @@
 #include "statistics.cuh"
 #include "statisticsCpu.h"
 #include <map>
+#include "launchDTO.h"
 
 #define DISTANCE_FUNCTION 2
+
+clock_t before;
+clock_t time_lapsed;
 
 __global__
 void transformVectors(float* data, float* queries, int N_data, int N_queries, int dimensions, int* m_bounds) {
@@ -33,10 +37,10 @@ void normalizeVectors(float* data, float* queries, int N_data, int N_queries, in
 }
 
 __global__
-void preprocess(float* data, float* queries, int N_data, int N_queries, int dimensions,int* m_bounds, int* m_indexMapSize) {
+void preprocess(float* data, float* queries, int N_data, int N_queries, int dimensions, int* m_bounds, int* m_indexMapSize) {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 	int totalThreads = blockDim.x * gridDim.x;
-	
+
 	// Find max
 	for (int i = threadId; i < N_data; i += totalThreads) {
 		for (int dim = 0; dim < dimensions; dim++) {
@@ -53,7 +57,7 @@ void preprocess(float* data, float* queries, int N_data, int N_queries, int dime
 	__syncthreads();
 
 	if (threadId == 0) {
-		m_indexMapSize[0] = 0; 
+		m_indexMapSize[0] = 0;
 		for (int i = 0; i < dimensions; i++) {
 			m_indexMapSize[0] += m_bounds[i];
 		}
@@ -85,17 +89,17 @@ void setupMapIndex(int* m_bounds, int* indexToComponentMap, int dimensions, int 
 
 __inline__ __device__
 float uniformRandom(curandState* state) {
-	float val = curand_uniform(state); 
-	return val; 
+	float val = curand_uniform(state);
+	return val;
 }
 
-__inline__ __device__ 
+__inline__ __device__
 bool isGreen(int* m_indexMap, int* m_bounds, float* data, float r, int i, int d) {
 	int rIdx = r;
 	int componentIdx = m_indexMap[rIdx];
 	int m_bounds_val = m_bounds[componentIdx];
 	float pointDI = data[i*d + componentIdx];
-	return r <= m_bounds_val + pointDI; 
+	return r <= m_bounds_val + pointDI;
 
 }
 
@@ -120,7 +124,6 @@ void sketchDataOneBit(float* data, int N_data, int dimensions, int sketchDim, in
 					r = M * random;
 					red = !isGreen(m_indexMap, m_bounds, data, r, i, dimensions);
 					if (red) {
-						char val = sketchedData[i * sketchDim + hashIdx];
 						counter++;
 					}
 				}
@@ -142,6 +145,8 @@ void sketchDataOneBit(float* data, int N_data, int dimensions, int sketchDim, in
 	//}
 
 }
+
+
 
 __global__
 void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_indexMap, int* m_bounds, int M, int* seeds, unsigned char* sketchedData) {
@@ -168,19 +173,52 @@ void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_i
 }
 
 
-__global__
-void scan(float* originalData, float* originalQueries, int dimensions, unsigned char * data, unsigned char * queries, int sketchDim, int N_data, int N_query, int k, Point* result) {
+template<class T> __global__
+void scan(float* originalData, float* originalQueries, int dimensions, T * data, T * queries, int sketchDim, int N_data, int N_query, int k, Point* result) {
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions;
 	if (queryIndex < dimensions * N_query) {
-		scanJaccardDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION,result);
+		scanJaccardDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION, result);
 	}
 }
 
-__global__ 
+__global__
 void bucketDistributionKernel(unsigned char* hashes, int hashesSize, int* res) {
 	bucketDistribution(hashes, hashesSize, res);
+}
 
+template<class T>
+void minHashPreprocessing(LaunchDTO<T> launchDTO, int* dev_m_bounds, int* dev_m_IndexMapSizeArr, int numberOfBlocks, int numberOfThreads) {
+
+	// Transform data
+	before = clock();
+
+	transformVectors << <1, numberOfThreads >> > (launchDTO.data, launchDTO.queries, launchDTO.N_data, launchDTO.N_queries, launchDTO.dimensions, dev_m_bounds);
+	waitForKernel();
+
+	normalizeVectors << <numberOfBlocks, numberOfThreads >> > (launchDTO.data, launchDTO.queries, launchDTO.N_data, launchDTO.N_queries, launchDTO.dimensions);
+	waitForKernel();
+
+	preprocess << <1, numberOfThreads >> > (launchDTO.data, launchDTO.queries, launchDTO.N_data, launchDTO.N_queries, launchDTO.dimensions, dev_m_bounds, dev_m_IndexMapSizeArr);
+	waitForKernel();
+	time_lapsed = clock() - before;
+	printf("Time to preprocess: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+}
+
+template<class T>
+void runBucketStatistics(LaunchDTO<T> launchDTO, int numberOfThreads) {
+	int bucket_results_size = 255;
+	int* bucket_results = (int*)malloc(bucket_results_size * sizeof(int));
+	int* bucket_results_dev = mallocArray(bucket_results, bucket_results_size);
+	bucketDistributionKernel << <1, numberOfThreads >> > (launchDTO.sketchedData, launchDTO.sketchedDataSize, bucket_results_dev);
+	waitForKernel();
+
+	copyArrayToHost(bucket_results, bucket_results_dev, bucket_results_size);
+	for (int i = 0; i < bucket_results_size; i++) {
+		if (bucket_results[i] != 0) {
+			printf("[%d] = %d \n", i, bucket_results[i]);
+		}
+	}
 }
 
 bool* generateRandomVectors(int N, bool randomSeed = false) {
@@ -199,31 +237,13 @@ bool* generateRandomVectors(int N, bool randomSeed = false) {
 		vectors[i] = distribution(randomSeed ? eng : generator);
 		std::cout << vectors[i] << ",";
 	}
-	std::cout << std::endl; 
-	return vectors;
+	std::cout << std::endl;
+
+	bool* dev_vectors = mallocArray(vectors, N, true);
+	return dev_vectors;
 }
 
-
-Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
-	int numberOfThreads = calculateThreadsLocal(N_query);
-	int numberOfBlocks = calculateBlocksLocal(N_query);
-	
-	int dataSize = d * N_data;
-	int querySize = d * N_query;
-	int resultSize = k * N_query;
-	int charSize = 255; 
-	int m_indexMapSize = 0;
-
-	//Setup data array.
-	float* dev_data = mallocArray(data, dataSize, true);
-	
-	//Setup query array.
-	float* dev_queries = mallocArray(queries, querySize, true);
-	
-	bool runOneBitMinHash = implementation != 4; 
-
-	//Seeds
-	int seedArrSize = runOneBitMinHash ? sketchedDim * 8: sketchedDim;
+int* createSeedArr(int seedArrSize) {
 	int* seedArr = (int*)malloc(seedArrSize * sizeof(int));
 
 	for (int i = 0; i < seedArrSize; i++) {
@@ -231,53 +251,29 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	}
 
 	int* dev_seedArr = mallocArray(seedArr, seedArrSize, true);
-	bool* randomBitMap = generateRandomVectors(charSize); 
-	bool* dev_randomBitMap = mallocArray(randomBitMap, charSize, true); 
-	//Sketch arrays
-	int sketchedDataSize = N_data * sketchedDim;
-	unsigned char* sketchedData = (unsigned char*)malloc(sketchedDataSize * sizeof(unsigned char));
-	unsigned char* dev_sketchedData = mallocArray(sketchedData, sketchedDataSize);
 
+	return dev_seedArr;
+}
 
-	int sketchedQueriesSize = N_query * sketchedDim;
-	unsigned char* sketchedQueries = (unsigned char*)malloc(sketchedQueriesSize * sizeof(unsigned char));
-	unsigned char* dev_sketchedQueries = mallocArray(sketchedQueries, sketchedQueriesSize);
-
-
-	int* m_bounds = (int*)malloc(d * sizeof(int));
-	int* dev_m_bounds = mallocArray(m_bounds, d);
-
-	int* m_indexMapSizeArr = (int*)malloc(sizeof(int));
-	int* dev_m_IndexMapSizeArr = mallocArray(m_indexMapSizeArr, 1);
-
-	// Transform data
-	clock_t before = clock();
-
-	transformVectors << <1, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d, dev_m_bounds);
-	waitForKernel();
-
-	normalizeVectors << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d);
-	waitForKernel();
-
-	preprocess << <1, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d, dev_m_bounds, dev_m_IndexMapSizeArr);
-	waitForKernel();
-	clock_t time_lapsed = clock() - before;
-	printf("Time to preprocess: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-
+int getIndexMapSize(int* m_indexMapSizeArr, int* dev_m_IndexMapSizeArr) {
 	copyArrayToHost(m_indexMapSizeArr, dev_m_IndexMapSizeArr, 1);
-	m_indexMapSize = m_indexMapSizeArr[0];
+	int m_indexMapSize = m_indexMapSizeArr[0];
 	printf("Index map size: %d \n", m_indexMapSize);
+	return m_indexMapSize;
+}
 
-	// Build maps
+int* createIndexMap(int indexMapSize) {
+
+	int* m_IndexMap = (int*)malloc(indexMapSize * sizeof(int));
+	int* dev_m_indexMap = mallocArray(m_IndexMap, indexMapSize);
+	return dev_m_indexMap;
+}
+
+
+void printIndexMaps(int* dev_m_indexMap, int* dev_m_bounds, int d, int m_indexMapSize) {
+
 	int* m_IndexMap = (int*)malloc(m_indexMapSize * sizeof(int));
-	int* dev_m_indexMap = mallocArray(m_IndexMap, m_indexMapSize);
-
-	before = clock();
-	setupMapIndex << <1, 1 >> > (dev_m_bounds, dev_m_indexMap, d, m_indexMapSize); //
-	waitForKernel();
-	time_lapsed = clock() - before;
-	printf("Time to setup map: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-
+	int* m_bounds = (int*)malloc(d * sizeof(int));
 	copyArrayToHost(m_IndexMap, dev_m_indexMap, m_indexMapSize);
 	copyArrayToHost(m_bounds, dev_m_bounds, d);
 
@@ -290,74 +286,143 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	}
 	printf("\n");
 
-	printf("Starting sketch data \n");
+	free(m_IndexMap);
+	free(m_bounds);
+}
+
+void setupMaps(int* dev_m_indexMap, int* dev_m_bounds, int d, int m_indexMapSize, bool print = false) {
+
 	before = clock();
-
-	if (runOneBitMinHash) {
-		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (dev_queries, N_query, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap,dev_sketchedQueries);
-		waitForKernel();
-
-		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (dev_data, N_data, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap,dev_sketchedData);
-		waitForKernel();
-	}
-	else {
-		sketchData << <numberOfBlocks, numberOfThreads >> > (dev_queries, N_query, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_sketchedQueries);
-		waitForKernel();
-
-		sketchData << <numberOfBlocks, numberOfThreads >> > (dev_data, N_data, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_sketchedData);
-		waitForKernel();
-	}
-	
+	setupMapIndex << <1, 1 >> > (dev_m_bounds, dev_m_indexMap, d, m_indexMapSize); //
+	waitForKernel();
 	time_lapsed = clock() - before;
-	printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-	
-	printf("Done sketching \nStarting scan \n");
-	int bucket_results_size = 255; 
-	int* bucket_results = (int*)malloc(bucket_results_size * sizeof(int));
-	int* bucket_results_dev = mallocArray(bucket_results, bucket_results_size);
-	bucketDistributionKernel << <1, numberOfThreads >> > (dev_sketchedData, sketchedDataSize, bucket_results_dev);
-	waitForKernel(); 
+	printf("Time to setup map: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+	if (print)printIndexMaps(dev_m_indexMap, dev_m_bounds, d, m_indexMapSize);
+}
 
+template <class T>
+Point* runScan(LaunchDTO<T> launchDTO, int numberOfBlocks, int numberOfThreads) {
 
-	copyArrayToHost(sketchedData, dev_sketchedData, sketchedDataSize);
-	copyArrayToHost(sketchedQueries, dev_sketchedQueries, sketchedQueriesSize);
-
-	copyArrayToHost(bucket_results, bucket_results_dev, bucket_results_size); 
-	for (int i = 0; i < bucket_results_size; i++) {
-		if (bucket_results[i] != 0) {
-			printf("[%d] = %d \n", i, bucket_results[i]);
-		}
-	}
-
-	//std::map<std::string, int> m = bucketDistributionFullKey(sketchedData, sketchedDataSize, sketchedDim); 
-
-	//for (std::map<std::string,int>::iterator it = m.begin(); it != m.end(); ++it) {
-	//	std::cout << it->first << " " << it->second << std::endl; 
-	//}
-
-	// Do linear scan
-	Point* results = (Point*)malloc(resultSize * sizeof(Point));
-	Point* dev_results = mallocArray(results, resultSize);
+	Point* results = (Point*)malloc(launchDTO.resultSize * sizeof(Point));
 
 	before = clock();
-	scan << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_queries, d, dev_sketchedData, dev_sketchedQueries, sketchedDim, N_data, N_query, k, dev_results);
+	scan << <numberOfBlocks, numberOfThreads >> > (launchDTO.data, launchDTO.queries, launchDTO.dimensions, launchDTO.sketchedData, launchDTO.sketchedQueries, launchDTO.sketchDim, launchDTO.N_data, launchDTO.N_queries, launchDTO.k, launchDTO.results);
 	waitForKernel();
 	time_lapsed = clock() - before;
 	printf("Time for scanning: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
-	copyArrayToHost(results, dev_results, resultSize);
+	copyArrayToHost(results, launchDTO.results, launchDTO.resultSize);
 
 	printf("Done with scan \n");
-	//Close
-	freeDeviceArray(dev_data);
-	freeDeviceArray(dev_queries);
-	freeDeviceArray(dev_sketchedData);
-	freeDeviceArray(dev_sketchedQueries);
+
+	return results; 
+}
+
+template <class T>
+void cleanup(LaunchDTO<T> launchDTO, int* dev_m_bounds, int* m_bounds, bool* dev_randomBitMap) {
+	freeDeviceArray(launchDTO.data);
+	freeDeviceArray(launchDTO.queries);
+	freeDeviceArray(launchDTO.sketchedData);
+	freeDeviceArray(launchDTO.sketchedQueries);
 	freeDeviceArray(dev_m_bounds);
-	freeDeviceArray(dev_results);
-	free(sketchedData);
-	free(sketchedQueries);
+	freeDeviceArray(launchDTO.results);
+	freeDeviceArray(dev_randomBitMap);
 	free(m_bounds);
+}
+
+template <class T>
+LaunchDTO<T> setupLaunchDTO(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
+	LaunchDTO<T> launchDTO;
+
+	launchDTO.k = k;
+	launchDTO.dimensions = d;
+	launchDTO.sketchDim = sketchedDim;
+	launchDTO.N_data = N_data;
+	launchDTO.N_queries = N_query;
+	launchDTO.dataSize = N_data * d;
+	launchDTO.querySize = N_query * d;
+	launchDTO.resultSize = N_query * k;
+	launchDTO.sketchedDataSize = N_data * sketchedDim;
+	launchDTO.sketchedQueriesSize = N_query * sketchedDim;
+	Point* results = (Point*)malloc(launchDTO.resultSize * sizeof(Point));
+	unsigned char* sketchedData;
+	unsigned char* sketchedQueries;
+
+	launchDTO.data = mallocArray(data, launchDTO.dataSize, true);
+	launchDTO.queries = mallocArray(queries, launchDTO.querySize, true);
+	launchDTO.results = mallocArray(results, launchDTO.resultSize);
+	launchDTO.sketchedData = mallocArray(sketchedData, launchDTO.sketchedDataSize);
+	launchDTO.sketchedQueries = mallocArray(sketchedQueries, launchDTO.sketchedQueriesSize);
+	free(results);
+	return launchDTO;
+}
+
+Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
+	int numberOfThreads = calculateThreadsLocal(N_query);
+	int numberOfBlocks = calculateBlocksLocal(N_query);
+	clock_t before = clock();
+	clock_t time_lapsed = clock();
+	int charSize = 255;
+
+	LaunchDTO<unsigned char> launchDTO = setupLaunchDTO<unsigned char>(k, d, sketchedDim, N_query, N_data, data, queries);
+	printf("Done setting up DTO \n");
+
+	//Setup query array.
+
+	bool runOneBitMinHash = implementation != 4;
+
+	int* dev_seedArr = createSeedArr(runOneBitMinHash ? sketchedDim * 8 : sketchedDim);
+
+	bool* dev_randomBitMap = generateRandomVectors(charSize);
+
+	int* m_bounds = (int*)malloc(d * sizeof(int));
+	int* dev_m_bounds = mallocArray(m_bounds, d);
+
+	int* m_indexMapSizeArr = (int*)malloc(sizeof(int));
+	int* dev_m_IndexMapSizeArr = mallocArray(m_indexMapSizeArr, 1);
+
+	//Transform, Normalize, Maps
+	minHashPreprocessing(launchDTO, dev_m_bounds, dev_m_IndexMapSizeArr, numberOfBlocks, numberOfThreads);
+
+	int m_indexMapSize = getIndexMapSize(m_indexMapSizeArr, dev_m_IndexMapSizeArr);
+	printf("Index map size: %d \n", m_indexMapSize);
+
+	// Build maps
+	int* m_IndexMap = (int*)malloc(m_indexMapSize * sizeof(int));
+	int* dev_m_indexMap = createIndexMap(m_indexMapSize); //mallocArray(m_IndexMap, m_indexMapSize);
+
+	//Finalize maps
+	setupMaps(dev_m_indexMap, dev_m_bounds, d, m_indexMapSize, true); 
+
+
+	printf("Starting sketch data \n");
+	before = clock();
+
+	if (runOneBitMinHash) {
+		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (launchDTO.queries, launchDTO.N_queries, launchDTO.dimensions, launchDTO.sketchDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap, launchDTO.sketchedQueries);
+		waitForKernel();
+
+		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (launchDTO.data, launchDTO.N_data, launchDTO.dimensions, launchDTO.sketchDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap, launchDTO.sketchedData);
+		waitForKernel();
+	}
+	else {
+		sketchData << <numberOfBlocks, numberOfThreads >> > (launchDTO.queries, launchDTO.N_queries, launchDTO.dimensions, launchDTO.sketchDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, launchDTO.sketchedQueries);
+		waitForKernel();
+
+		sketchData << <numberOfBlocks, numberOfThreads >> > (launchDTO.data, launchDTO.N_data, launchDTO.dimensions, launchDTO.sketchDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, launchDTO.sketchedData);
+		waitForKernel();
+	}
+
+	time_lapsed = clock() - before;
+	printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+	
+	runBucketStatistics(launchDTO, numberOfThreads); 
+	
+	printf("Done sketching \nStarting scan \n");
+	Point* results = runScan(launchDTO, numberOfBlocks, numberOfThreads);
+
+	//Close
+	cleanup(launchDTO, dev_m_bounds, m_bounds, dev_randomBitMap);
 
 	resetDevice();
 
