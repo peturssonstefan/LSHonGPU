@@ -9,7 +9,7 @@
 #include <math.h>
 #include <time.h>
 #include "constants.cuh"
-#include "hammingDistanceScanner.cuh"
+#include "sketchedDistanceScanners.cuh"
 #include "launchHelper.cuh"
 #include <curand.h>
 #include <curand_kernel.h>
@@ -173,7 +173,7 @@ void scan(float* originalData, float* originalQueries, int dimensions, unsigned 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions;
 	if (queryIndex < dimensions * N_query) {
-		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION,result);
+		scanJaccardDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION,result);
 	}
 }
 

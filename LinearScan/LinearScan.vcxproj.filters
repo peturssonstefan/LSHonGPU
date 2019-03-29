@@ -61,9 +61,6 @@
     <ClInclude Include="simpleLinearScan.cuh">
       <Filter>scanners</Filter>
     </ClInclude>
-    <ClInclude Include="hammingDistanceScanner.cuh">
-      <Filter>scanners</Filter>
-    </ClInclude>
     <ClInclude Include="constants.cuh">
       <Filter>utils</Filter>
     </ClInclude>
@@ -106,6 +103,9 @@
     </ClInclude>
     <ClInclude Include="statisticsCpu.h">
       <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="sketchedDistanceScanners.cuh">
+      <Filter>scanners</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

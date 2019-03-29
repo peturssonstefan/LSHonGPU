@@ -9,7 +9,7 @@
 #include <math.h>
 #include <time.h>
 #include "constants.cuh"
-#include "hammingDistanceScanner.cuh"
+#include "sketchedDistanceScanners.cuh"
 #include "launchHelper.cuh"
 #include "cudaHelpers.cuh"
 

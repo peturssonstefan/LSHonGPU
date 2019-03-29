@@ -83,8 +83,10 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 
 }
 
-__inline__ __device__
-void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned char * data, unsigned char * queries, int sketchDim, int nData, int N_query, int k, int distFunc,Point* result)
+
+
+template<class T> __inline__ __device__
+void scanJaccardDistance(float* originalData, float* originalQuery, int dimensions, T * data, T * queries, int sketchDim, int nData, int N_query, int k, int distFunc,Point* result)
 {
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE;
@@ -108,8 +110,8 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 		float jaccardSimilarity = 0;
 
 		for (int hashIdx = 0; hashIdx < sketchDim; hashIdx++) {
-			unsigned char queryHash = queries[queryIdx + hashIdx];
-			unsigned char dataHash = data[sketchDim*i + hashIdx];
+			T queryHash = queries[queryIdx + hashIdx];
+			T dataHash = data[sketchDim*i + hashIdx];
 			jaccardSimilarity += queryHash == dataHash ? 1 : 0;
 		}
 
