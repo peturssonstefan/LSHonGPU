@@ -15,18 +15,28 @@
 #include <curand_kernel.h>
 #include "processingUtils.cuh"
 #include "cudaHelpers.cuh"
+#include "statistics.cuh"
+#include "statisticsCpu.h"
+#include <map>
 
 #define DISTANCE_FUNCTION 2
+
+__global__
+void transformVectors(float* data, float* queries, int N_data, int N_queries, int dimensions, int* m_bounds) {
+	transformData(data, queries, N_data, N_queries, dimensions, m_bounds);
+}
+
+__global__
+void normalizeVectors(float* data, float* queries, int N_data, int N_queries, int dimensions) {
+	transformToUnitVectors(queries, N_queries, dimensions);
+	transformToUnitVectors(data, N_data, dimensions);
+}
 
 __global__
 void preprocess(float* data, float* queries, int N_data, int N_queries, int dimensions,int* m_bounds, int* m_indexMapSize) {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 	int totalThreads = blockDim.x * gridDim.x;
 	
-	transformData(data, queries, N_data, N_queries, dimensions, m_bounds); 
-
-	__syncthreads();
-
 	// Find max
 	for (int i = threadId; i < N_data; i += totalThreads) {
 		for (int dim = 0; dim < dimensions; dim++) {
@@ -74,14 +84,14 @@ void setupMapIndex(int* m_bounds, int* indexToComponentMap, int dimensions, int 
 }
 
 __inline__ __device__
-float uniformRandom(curandState* state, int seed) {
+float uniformRandom(curandState* state) {
 	float val = curand_uniform(state); 
 	return val; 
 }
 
 __inline__ __device__ 
 bool isGreen(int* m_indexMap, int* m_bounds, float* data, float r, int i, int d) {
-	int rIdx = r + 1;
+	int rIdx = r;
 	int componentIdx = m_indexMap[rIdx];
 	int m_bounds_val = m_bounds[componentIdx];
 	float pointDI = data[i*d + componentIdx];
@@ -91,7 +101,7 @@ bool isGreen(int* m_indexMap, int* m_bounds, float* data, float r, int i, int d)
 
 
 __global__
-void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_indexMap, int* m_bounds, int M, int* seeds, unsigned char* sketchedData) {
+void sketchDataOneBit(float* data, int N_data, int dimensions, int sketchDim, int* m_indexMap, int* m_bounds, int M, int* seeds, bool* randomBitMap, unsigned char* sketchedData) {
 	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int totalThreads = blockDim.x * gridDim.x;
 
@@ -106,7 +116,7 @@ void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_i
 				int counter = 0;
 				float r = 0;
 				while (red) {
-					float random = uniformRandom(&s, seed);
+					float random = uniformRandom(&s);
 					r = M * random;
 					red = !isGreen(m_indexMap, m_bounds, data, r, i, dimensions);
 					if (red) {
@@ -114,12 +124,8 @@ void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_i
 						counter++;
 					}
 				}
-
-				if (counter > 0) {
-					//if (threadId == 0) printf("counter: %d, bitindex: %d, seed: %d, r: %d  \n", counter, bitIndex, seed, r);
-					sketchedData[i * sketchDim + hashIdx] |= 1 << bitIndex;
-				}
-
+				int bit = randomBitMap[counter];
+				sketchedData[i * sketchDim + hashIdx] |= bit << bitIndex;
 			}
 
 
@@ -138,6 +144,31 @@ void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_i
 }
 
 __global__
+void sketchData(float* data, int N_data, int dimensions, int sketchDim, int* m_indexMap, int* m_bounds, int M, int* seeds, unsigned char* sketchedData) {
+	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int totalThreads = blockDim.x * gridDim.x;
+
+	for (int i = threadId; i < N_data; i += totalThreads) {
+		for (int hashIdx = 0; hashIdx < sketchDim; hashIdx++) {
+			int seed = seeds[hashIdx];
+			sketchedData[i * sketchDim + hashIdx] = 0;
+			curandState s;
+			curand_init(seed, 0, 10000, &s);
+			bool red = true;
+			while (red) {
+				float random = uniformRandom(&s);
+				float r = M * random;
+				red = !isGreen(m_indexMap, m_bounds, data, r, i, dimensions);
+				if (red) {
+					sketchedData[i * sketchDim + hashIdx]++;
+				}
+			}
+		}
+	}
+}
+
+
+__global__
 void scan(float* originalData, float* originalQueries, int dimensions, unsigned char * data, unsigned char * queries, int sketchDim, int N_data, int N_query, int k, Point* result) {
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions;
@@ -146,16 +177,41 @@ void scan(float* originalData, float* originalQueries, int dimensions, unsigned 
 	}
 }
 
-Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
-	int componentSize = 8;
+__global__ 
+void bucketDistributionKernel(unsigned char* hashes, int hashesSize, int* res) {
+	bucketDistribution(hashes, hashesSize, res);
 
+}
+
+bool* generateRandomVectors(int N, bool randomSeed = false) {
+
+	// same seed 
+	static bool* vectors = (bool*)malloc(N * sizeof(bool));
+	std::default_random_engine generator;
+	// different seeds
+	std::random_device rd;  // obtain a random number from hardware
+	std::mt19937 eng(rd()); // seed the generator
+
+	std::uniform_int_distribution<int> distribution(0, 1); // Standard normal distribution.
+
+	for (int i = 0; i < N; ++i)
+	{
+		vectors[i] = distribution(randomSeed ? eng : generator);
+		std::cout << vectors[i] << ",";
+	}
+	std::cout << std::endl; 
+	return vectors;
+}
+
+
+Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	
 	int dataSize = d * N_data;
 	int querySize = d * N_query;
 	int resultSize = k * N_query;
-
+	int charSize = 255; 
 	int m_indexMapSize = 0;
 
 	//Setup data array.
@@ -164,8 +220,10 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	//Setup query array.
 	float* dev_queries = mallocArray(queries, querySize, true);
 	
+	bool runOneBitMinHash = implementation != 4; 
+
 	//Seeds
-	int seedArrSize = sketchedDim * componentSize;
+	int seedArrSize = runOneBitMinHash ? sketchedDim * 8: sketchedDim;
 	int* seedArr = (int*)malloc(seedArrSize * sizeof(int));
 
 	for (int i = 0; i < seedArrSize; i++) {
@@ -173,7 +231,8 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 	}
 
 	int* dev_seedArr = mallocArray(seedArr, seedArrSize, true);
-
+	bool* randomBitMap = generateRandomVectors(charSize); 
+	bool* dev_randomBitMap = mallocArray(randomBitMap, charSize, true); 
 	//Sketch arrays
 	int sketchedDataSize = N_data * sketchedDim;
 	unsigned char* sketchedData = (unsigned char*)malloc(sketchedDataSize * sizeof(unsigned char));
@@ -193,6 +252,13 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 
 	// Transform data
 	clock_t before = clock();
+
+	transformVectors << <1, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d, dev_m_bounds);
+	waitForKernel();
+
+	normalizeVectors << <numberOfBlocks, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d);
+	waitForKernel();
+
 	preprocess << <1, numberOfThreads >> > (dev_data, dev_queries, N_data, N_query, d, dev_m_bounds, dev_m_IndexMapSizeArr);
 	waitForKernel();
 	clock_t time_lapsed = clock() - before;
@@ -226,15 +292,48 @@ Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, 
 
 	printf("Starting sketch data \n");
 	before = clock();
-	sketchData << <numberOfBlocks, numberOfThreads >> > (dev_queries, N_query, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr ,dev_sketchedQueries);
-	waitForKernel();
 
-	sketchData << <numberOfBlocks, numberOfThreads >> > (dev_data, N_data, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_sketchedData);
-	waitForKernel();
+	if (runOneBitMinHash) {
+		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (dev_queries, N_query, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap,dev_sketchedQueries);
+		waitForKernel();
+
+		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (dev_data, N_data, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap,dev_sketchedData);
+		waitForKernel();
+	}
+	else {
+		sketchData << <numberOfBlocks, numberOfThreads >> > (dev_queries, N_query, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_sketchedQueries);
+		waitForKernel();
+
+		sketchData << <numberOfBlocks, numberOfThreads >> > (dev_data, N_data, d, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_sketchedData);
+		waitForKernel();
+	}
+	
 	time_lapsed = clock() - before;
 	printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 	
 	printf("Done sketching \nStarting scan \n");
+	int bucket_results_size = 255; 
+	int* bucket_results = (int*)malloc(bucket_results_size * sizeof(int));
+	int* bucket_results_dev = mallocArray(bucket_results, bucket_results_size);
+	bucketDistributionKernel << <1, numberOfThreads >> > (dev_sketchedData, sketchedDataSize, bucket_results_dev);
+	waitForKernel(); 
+
+
+	copyArrayToHost(sketchedData, dev_sketchedData, sketchedDataSize);
+	copyArrayToHost(sketchedQueries, dev_sketchedQueries, sketchedQueriesSize);
+
+	copyArrayToHost(bucket_results, bucket_results_dev, bucket_results_size); 
+	for (int i = 0; i < bucket_results_size; i++) {
+		if (bucket_results[i] != 0) {
+			printf("[%d] = %d \n", i, bucket_results[i]);
+		}
+	}
+
+	//std::map<std::string, int> m = bucketDistributionFullKey(sketchedData, sketchedDataSize, sketchedDim); 
+
+	//for (std::map<std::string,int>::iterator it = m.begin(); it != m.end(); ++it) {
+	//	std::cout << it->first << " " << it->second << std::endl; 
+	//}
 
 	// Do linear scan
 	Point* results = (Point*)malloc(resultSize * sizeof(Point));

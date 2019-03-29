@@ -20,7 +20,7 @@
 #include "weightedMinHash.cuh"
 
 
-char* implementations[4] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash" };
+char* implementations[5] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash", "OneBit - WeightedMinHash" };
 
 int main(int argc, char **argv)
 {
@@ -70,8 +70,9 @@ int main(int argc, char **argv)
 		res = runSimHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
 		break;
 	case 4:
+	case 5:
 		printf("Running min hash \n");
-		res = runWeightedMinHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
+		res = runWeightedMinHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries, implementation);
 		break;
 	default:
 		printf("Invalid implementation selected. \n");

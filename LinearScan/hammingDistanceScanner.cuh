@@ -105,18 +105,21 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	}
 
 	for (int i = lane; i < nData; i += WARPSIZE) {
-		int hammingDistance = 0;
+		float jaccardSimilarity = 0;
 
-//#pragma unroll
-		for (int j = 0; j < sketchDim; j++) {
-			unsigned int queryValue = queries[queryIdx + j];
-			unsigned int dataValue = data[sketchDim*i + j];
-			unsigned int bits = queryValue ^ dataValue;
-			int bitCount = __popc(bits);
-			hammingDistance += bitCount;
+		for (int hashIdx = 0; hashIdx < sketchDim; hashIdx++) {
+			unsigned char queryHash = queries[queryIdx + hashIdx];
+			unsigned char dataHash = data[sketchDim*i + hashIdx];
+			jaccardSimilarity += queryHash == dataHash ? 1 : 0;
 		}
 
-		Point currentPoint = createPoint(i, (float)hammingDistance);
+		jaccardSimilarity /= sketchDim;
+
+		float jaccardDistance = 1 - jaccardSimilarity;
+
+		//printf("Jaccard distance: %f \n", jaccardDistance);
+
+		Point currentPoint = createPoint(i, jaccardDistance);
 
 		for (int j = 0; (j < k && j <= i); j++) { // simple sorting.
 			if (currentPoint.distance < threadQueue[j].distance) {

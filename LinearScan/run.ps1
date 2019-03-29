@@ -7,13 +7,13 @@ param(
     $distanceFunc = "2",
     $bits = "4",
     $compile = $True,
-    $queueSize = '4'
+    $queueSize = '8'
 )
 
 .\changeVariables -queueSize $queueSize
 
 if($compile){
-    nvcc -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu weightedMinHash.cu
+    nvcc -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu weightedMinHash.cu
 }
 
 

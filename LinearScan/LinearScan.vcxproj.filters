@@ -101,9 +101,18 @@
     <ClInclude Include="cudaHelpers.cuh">
       <Filter>utils</Filter>
     </ClInclude>
+    <ClInclude Include="statistics.cuh">
+      <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="statisticsCpu.h">
+      <Filter>utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />
     <ClCompile Include="validation.cpp" />
+    <ClCompile Include="statisticsCpu.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

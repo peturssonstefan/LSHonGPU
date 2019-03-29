@@ -118,6 +118,12 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 }
 
 __global__
+void normalizeData(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions) {
+	transformToUnitVectors(queryPoints, nQueries, dimensions);
+	transformToUnitVectors(dataPoints, nData, dimensions);
+}
+
+__global__
 void preprocess(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int* minValues)
 {
 	transformData(dataPoints, queryPoints, nData, nQueries, dimensions, minValues);
@@ -143,6 +149,10 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 		int* dev_minValues = mallocArray<int>(nullptr, d);
 		preprocess << <1, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, dev_minValues);
 		waitForKernel();
+
+		normalizeData << < numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d);
+		waitForKernel();
+		
 		printf("Done preprocessing \n");
 	}
 
