@@ -23,6 +23,9 @@
     <CudaCompile Include="cudaHelpers.cu">
       <Filter>utils</Filter>
     </CudaCompile>
+    <CudaCompile Include="simHashJL.cu">
+      <Filter>simhash</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="parsing">
@@ -110,11 +113,20 @@
     <ClInclude Include="launchDTO.h">
       <Filter>models</Filter>
     </ClInclude>
+    <ClInclude Include="simHashJL.cuh">
+      <Filter>simhash</Filter>
+    </ClInclude>
+    <ClInclude Include="randomVectorGenerator.h">
+      <Filter>utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />
     <ClCompile Include="validation.cpp" />
     <ClCompile Include="statisticsCpu.cpp">
+      <Filter>utils</Filter>
+    </ClCompile>
+    <ClCompile Include="randomVectorGenerator.cpp">
       <Filter>utils</Filter>
     </ClCompile>
   </ItemGroup>

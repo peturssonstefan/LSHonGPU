@@ -23,14 +23,7 @@ void candidateSetScan(float* data, float* query, int dimensions, Point* candidat
 		int index = candidates[i].ID * dimensions; 
 		float distance = 0.0; // reset value.
 
-		switch (distFunc) {
-		case 1:
-			distance = angularDistance(&data[index], query, dimensions, magnitude_query);
-			break;
-		case 2: distance = generalizedJaccardDistance(&data[index], query, dimensions);
-			break;
-		default: printf("Invalid operation selected for distance function \n"); return;
-		}
+		distance = runDistanceFunction(distFunc, &data[index], query, dimensions, magnitude_query);
 
 		candidates[i].distance = candidates[i].ID < 0 ? (float)INT_MAX : distance;
 	}

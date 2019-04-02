@@ -1,7 +1,7 @@
 #pragma once
 
 #define MAX_K 100
-#define SKETCH_COMP_SIZE 64
+#define SKETCH_COMP_SIZE 32
 #define FULL_MASK 0xffffffff
 #define THREAD_QUEUE_SIZE 32
 #define WARPSIZE 32

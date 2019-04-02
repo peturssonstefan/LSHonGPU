@@ -61,15 +61,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	//Iterate over data; 
 	for (int i = lane; i < nData; i += WARPSIZE) {
 
-		switch (func) {
-			case 1:
-				distance = angularDistance(&dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
-				break; 
-			case 2: 
-				distance = generalizedJaccardDistance(&dataPoints[i*dimensions], &queryPoints[queryId], dimensions);
-				break;
-			default: printf("Invalid operation selected for distance function \n"); return;
-		}	
+		distance = runDistanceFunction(func, &dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
 
 		Point currentPoint = createPoint(i, distance);
 		//for (int j = candidateSetSize-1; j >= 0 ; j--) { // simple sorting.

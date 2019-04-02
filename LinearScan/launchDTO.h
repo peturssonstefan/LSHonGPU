@@ -19,5 +19,6 @@ struct LaunchDTO
 	int dataSize; 
 	int querySize; 
 	int resultSize; 
+	int bitsPerDim; 
 	Point* results; 
 };

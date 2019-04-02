@@ -18,9 +18,9 @@
 #include "launchHelper.cuh"
 #include "validation.h"
 #include "weightedMinHash.cuh"
+#include "simHashJL.cuh"
 
-
-char* implementations[5] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash", "OneBit - WeightedMinHash" };
+char* implementations[6] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash", "OneBit - WeightedMinHash", "SimHash Johnson Lindenstrauss"};
 
 int main(int argc, char **argv)
 {
@@ -69,11 +69,13 @@ int main(int argc, char **argv)
 	case 3: 
 		res = runSimHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
 		break;
-	case 4:
+	case 4: 
 	case 5:
-		printf("Running min hash \n");
-		res = runWeightedMinHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries, implementation);
+		res = runWeightedMinHash(k, d, atoi(argv[8]), N_query, N_data, data, queries, implementation);
 		break;
+	case 6: 
+		res = runSimHashJLLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
+		break; 
 	default:
 		printf("Invalid implementation selected. \n");
 		//exit(-1);
