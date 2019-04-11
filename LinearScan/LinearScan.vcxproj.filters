@@ -46,6 +46,9 @@
     <Filter Include="minhash">
       <UniqueIdentifier>{2ef088cd-dc89-4b8e-ac69-59577a27e513}</UniqueIdentifier>
     </Filter>
+    <Filter Include="lsh">
+      <UniqueIdentifier>{d41f9ba4-720b-40c6-a2ca-ef767b5114d1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gloveparser.cuh">
@@ -118,6 +121,9 @@
     </ClInclude>
     <ClInclude Include="randomVectorGenerator.h">
       <Filter>utils</Filter>
+    </ClInclude>
+    <ClInclude Include="lshFramework.cuh">
+      <Filter>lsh</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

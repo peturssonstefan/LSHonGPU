@@ -79,6 +79,10 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		//	//printQueue(threadQueue);
 		//}
 		
+		if (queuePosition >= THREAD_QUEUE_SIZE) {
+			printf("Invalid queuePos %d \n", queuePosition);
+		}
+
 		//With buffer 
 		if (currentPoint.distance < maxKDistance) {
 			threadQueue[queuePosition++] = currentPoint;
@@ -92,8 +96,6 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 			//printQueue(threadQueue);
 			queuePosition = 0;
 		}
-
-
 	}
 
 	startSort(threadQueue, swapPoint, params);

@@ -24,11 +24,15 @@ int calculateK(int k) {
 }
 
 template <class T>
-LaunchDTO<T> setupLaunchDTO(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
+LaunchDTO<T> setupLaunchDTO(int implementation, int distanceFunc, int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int bucketKeyBits, int tables) {
 	LaunchDTO<T> launchDTO;
 
+	launchDTO.implementation = implementation;
+	launchDTO.distanceFunc = distanceFunc; 
 	launchDTO.k = k;
 	launchDTO.dimensions = d;
+	launchDTO.bucketKeyBits = bucketKeyBits;
+	launchDTO.tables = tables; 
 	launchDTO.sketchDim = sketchedDim;
 	launchDTO.N_data = N_data;
 	launchDTO.N_queries = N_query;

@@ -5,6 +5,8 @@
 template <class T>
 struct LaunchDTO
 {
+	int implementation;
+	int distanceFunc; 
 	float* data;
 	float* queries;
 	int N_data;
@@ -19,6 +21,7 @@ struct LaunchDTO
 	int dataSize; 
 	int querySize; 
 	int resultSize; 
-	int bitsPerDim; 
+	int bucketKeyBits;
+	int tables;
 	Point* results; 
 };

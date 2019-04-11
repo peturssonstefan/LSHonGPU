@@ -75,7 +75,7 @@ Point* runSimHashJLLinearScan(int k, int d, int sketchedDim, int N_query, int N_
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query); 
 	int randomVectorSize = sketchedDim * d;
-	LaunchDTO<float> launchDTO = setupLaunchDTO<float>(k, d, sketchedDim, N_query, N_data, data, queries);
+	LaunchDTO<float> launchDTO = setupLaunchDTO<float>(6, 2 ,k, d, sketchedDim, N_query, N_data, data, queries, 0, 0);
 	normalizeVectors << <numberOfBlocks, numberOfThreads >> > (launchDTO);
 	waitForKernel();
 	float* randomVectors = generateRandomVectors(randomVectorSize, sketchedDim);

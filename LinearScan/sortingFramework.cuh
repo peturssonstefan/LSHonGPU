@@ -5,6 +5,7 @@
 #include "constants.cuh"
 #include "pointExtensions.cuh"
 #include "sortParameters.h"
+#include <math.h>
 
 template <typename T>
 inline __device__ T* shuffle_down(T* const val, unsigned int delta, int width = warpSize) {

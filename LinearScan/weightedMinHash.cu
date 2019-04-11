@@ -70,7 +70,7 @@ void preprocess(LaunchDTO<T> launchDTO, int* m_bounds, int* m_indexMapSize) {
 
 __global__
 void setupMapIndex(int* m_bounds, int* indexToComponentMap, int dimensions, int indexMapSize) {
-	if (threadIdx.x == 0) { //TODO... We all know there is a smarter way to do this...
+	if (threadIdx.x == 0) { 
 		int currentBound = 0;
 		for (int i = 0; i < dimensions; i++) {
 			int bound = currentBound + m_bounds[i];
@@ -232,7 +232,7 @@ void runBucketStatistics(LaunchDTO<T> launchDTO, int numberOfThreads) {
 	}
 }
 
-bool* generateRandomVectors(int N, bool randomSeed = false) {
+bool* generateRandomBoolVectors(int N, bool randomSeed = false) {
 
 	// same seed 
 	static bool* vectors = (bool*)malloc(N * sizeof(bool));
@@ -347,7 +347,7 @@ inline Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int charSize = 255;
 
-	LaunchDTO<T> launchDTO = setupLaunchDTO<T>(k, d, sketchedDim, N_query, N_data, data, queries);
+	LaunchDTO<T> launchDTO = setupLaunchDTO<T>(implementation, DISTANCE_FUNCTION, k, d, sketchedDim, N_query, N_data, data, queries, 0, 0);
 	printf("Done setting up DTO \n");
 
 	//Setup query array.
@@ -356,7 +356,7 @@ inline Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_
 
 	int* dev_seedArr = createSeedArr(runOneBitMinHash ? sketchedDim * SKETCH_COMP_SIZE : sketchedDim);
 
-	bool* dev_randomBitMap = generateRandomVectors(charSize);
+	bool* dev_randomBitMap = generateRandomBoolVectors(charSize);
 
 	int* m_bounds = (int*)malloc(d * sizeof(int));
 	int* dev_m_bounds = mallocArray(m_bounds, d);

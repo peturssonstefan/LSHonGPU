@@ -19,8 +19,59 @@
 #include "validation.h"
 #include "weightedMinHash.cuh"
 #include "simHashJL.cuh"
+#include "launchHelper.cuh"
+#include "lshFramework.cuh"
 
 char* implementations[6] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash", "OneBit - WeightedMinHash", "SimHash Johnson Lindenstrauss"};
+
+Point* linearScans(int implementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc) {
+	Point* res;
+
+	switch (implementation)
+	{
+	case 1:
+		res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
+		break;
+	case 2:
+		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries, distanceFunc);
+		break;
+	case 3:
+		res = runSimHashLinearScan(k, d, sketchDim, N_query, N_data, data, queries);
+		break;
+	case 4:
+	case 5:
+		res = runWeightedMinHash(k, d, sketchDim, N_query, N_data, data, queries, implementation);
+		break;
+	case 6:
+		res = runSimHashJLLinearScan(k, d, sketchDim, N_query, N_data, data, queries);
+		break;
+	default:
+		printf("Invalid implementation selected. \n");
+		//exit(-1);
+		break; //?
+	}
+
+	return res; 
+}
+
+
+Point* LSH(int implementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
+	Point* res;
+
+	switch (implementation)
+	{
+	case 3:
+		LaunchDTO<unsigned int> params = setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries, bucketKeyBits,tables);
+		res = runLsh(params);
+		break;
+	default:
+		printf("Invalid implementation selected for LSH. \n");
+		//exit(-1);
+		break; //?
+	}
+
+	return res; 
+}
 
 int main(int argc, char **argv)
 {
@@ -35,7 +86,11 @@ int main(int argc, char **argv)
 	int implementation = atoi(argv[7]);
 	int reportK = atoi(_k);
 	int k = calculateK(reportK);
+	int sketchDim = atoi(argv[8]);
 	int distanceFunc = atoi(argv[9]); 
+	int framework = atoi(argv[10]);
+	int bucketKeyBits = atoi(argv[11]); 
+	int tables = atoi(argv[12]); 
 	int N_data = 0;
 	int N_query = 0;
 	int d = 0;
@@ -58,28 +113,11 @@ int main(int argc, char **argv)
 	printf("Implementation selected = %s\n", implementations[implementation-1]); 
 	Point* res; 
 
-	switch (implementation)
-	{
-	case 1:
-		res = runOptimizedLinearScan(k, d, N_query, N_data, data, queries);
-		break;
-	case 2:
-		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries, distanceFunc);
-		break;
-	case 3: 
-		res = runSimHashLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
-		break;
-	case 4: 
-	case 5:
-		res = runWeightedMinHash(k, d, atoi(argv[8]), N_query, N_data, data, queries, implementation);
-		break;
-	case 6: 
-		res = runSimHashJLLinearScan(k, d, atoi(argv[8]), N_query, N_data, data, queries);
-		break; 
-	default:
-		printf("Invalid implementation selected. \n");
-		//exit(-1);
-		break; //?
+	if (framework == 0) {
+		res = linearScans(implementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc); 
+	}
+	else {
+		res = LSH(implementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables); 
 	}
 
 	if (shouldRunValidation) {

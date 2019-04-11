@@ -101,6 +101,14 @@ Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_da
 	copyArrayToHost(sketchedData, dev_sketchedData, sketchedDataSize);
 	copyArrayToHost(sketchedQuery, dev_sketchedQuery, sketchedQuerySize);
 
+	for (int i = 0; i < 10; i++) {
+		printf("Query %d: \n", i);
+		for (int j = 0; j < sketchedDim; j++) {
+			printf("%d \n", sketchedQuery[i*sketchedDim + j]);
+		}
+
+	}
+
 	//Setup Result Array 
 	Point* results = (Point*)malloc(resultSize * sizeof(Point));
 	Point* dev_results = mallocArray(results, resultSize);

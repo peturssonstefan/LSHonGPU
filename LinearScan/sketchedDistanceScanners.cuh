@@ -22,6 +22,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	int queryIdx = warpId * sketchDim;
 	int maxKDistance = 0;
 	int warpQueueSize = k / WARPSIZE;
+	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
 
@@ -45,7 +46,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 
 		Point currentPoint = createPoint(i, (float)hammingDistance); 
 
-		for (int j = 0; (j < k && j <= i); j++) { // simple sorting.
+		for (int j = candidateSetSize-1; j >= 0 ; j--) { // simple sorting.
 			if (currentPoint.distance < threadQueue[j].distance) {
 				swapPoint = threadQueue[j];
 				threadQueue[j] = currentPoint;
@@ -91,6 +92,7 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 	int queryIdxOriginal = warpId * launchDTO.dimensions; 
 	int maxKDistance = 0;
 	int warpQueueSize = launchDTO.k / WARPSIZE;
+	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
 
@@ -117,7 +119,7 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 
 		Point currentPoint = createPoint(i, dotProduct);
 
-		for (int j = 0; (j < launchDTO.k && j <= i); j++) { // simple sorting.
+		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
 			if (currentPoint.distance < threadQueue[j].distance) {
 				swapPoint = threadQueue[j];
 				threadQueue[j] = currentPoint;
@@ -174,6 +176,7 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 	int queryIdx = warpId * sketchDim;
 	int maxKDistance = 0;
 	int warpQueueSize = k / WARPSIZE;
+	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	bool sketchTypeOneBit = sizeof(T) > 1; 
 	int similarityDivisor = sketchTypeOneBit ? sketchDim * SKETCH_COMP_SIZE : sketchDim; 
@@ -203,7 +206,7 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 
 		Point currentPoint = createPoint(i, jaccardDistance);
 
-		for (int j = 0; (j < k && j <= i); j++) { // simple sorting.
+		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
 			if (currentPoint.distance < threadQueue[j].distance) {
 				swapPoint = threadQueue[j];
 				threadQueue[j] = currentPoint;
