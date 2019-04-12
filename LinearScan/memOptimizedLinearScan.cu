@@ -64,38 +64,34 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		distance = runDistanceFunction(func, &dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
 
 		Point currentPoint = createPoint(i, distance);
-		//for (int j = candidateSetSize-1; j >= 0 ; j--) { // simple sorting.
-		//	if (currentPoint.distance < threadQueue[j].distance) {
-		//		swapPoint = threadQueue[j];
-		//		threadQueue[j] = currentPoint;
-		//		currentPoint = swapPoint;
-		//	}
-		//}
-		//
-		////Verify that head of thread queue is not smaller than biggest k distance.
-		//if (__ballot_sync(FULL_MASK,threadQueue[0].distance < maxKDistance) && i < (nData - 1) - WARPSIZE) {
-		//	startSort(threadQueue, swapPoint, params);
-		//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
-		//	//printQueue(threadQueue);
-		//}
+		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+			if (currentPoint.distance < threadQueue[j].distance) {
+				swapPoint = threadQueue[j];
+				threadQueue[j] = currentPoint;
+				currentPoint = swapPoint;
+			}
+		}
 		
-		if (queuePosition >= THREAD_QUEUE_SIZE) {
-			printf("Invalid queuePos %d \n", queuePosition);
+		
+		//Verify that head of thread queue is not smaller than biggest k distance.
+		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+			startSort(threadQueue, swapPoint, params);
+			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
 		}
 
 		//With buffer 
-		if (currentPoint.distance < maxKDistance) {
-			threadQueue[queuePosition++] = currentPoint;
-		}
+		//if (currentPoint.distance < maxKDistance) {
+		//	threadQueue[queuePosition++] = currentPoint;
+		//}
 
-		
+		//
 
-		if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK ) {
-			startSort(threadQueue, swapPoint, params);
-			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
-			//printQueue(threadQueue);
-			queuePosition = 0;
-		}
+		//if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK ) {
+		//	startSort(threadQueue, swapPoint, params);
+		//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
+		//	//printQueue(threadQueue);
+		//	queuePosition = 0;
+		//}
 	}
 
 	startSort(threadQueue, swapPoint, params);

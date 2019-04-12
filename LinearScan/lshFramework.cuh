@@ -91,7 +91,7 @@ void scan(LaunchDTO<T> params, short* dev_bucketKeysQueries, int* dev_hashKeys, 
 
 	Point threadQueue[THREAD_QUEUE_SIZE];
 
-	int threadId = (blockIdx.x * gridDim.x) + threadIdx.x;
+	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int warpId = threadId / WARPSIZE;
 	float maxKDistance = (float)INT_MAX;
 	int lane = threadId % WARPSIZE;
@@ -106,7 +106,7 @@ void scan(LaunchDTO<T> params, short* dev_bucketKeysQueries, int* dev_hashKeys, 
 	Parameters sortParameters;
 	sortParameters.lane = lane; 
 	int queuePosition = 0;
-
+	
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = createPoint(-1, maxKDistance);
 	}
@@ -117,71 +117,47 @@ void scan(LaunchDTO<T> params, short* dev_bucketKeysQueries, int* dev_hashKeys, 
 
 	magnitudeQuery = sqrt(magnitudeQuery); 
 	//printf("magnitudeQuery: %f \n", magnitudeQuery); 
+	
 
 	for (int tableIdx = 0; tableIdx < params.tables; tableIdx++) {
-		__syncwarp();
-		
-		int queryHash = dev_bucketKeysQueries[queryHashIdx + tableIdx];
-		/*if (queryHash >= tableSize) {
-			printf("Invalid queryHash: %d \n", queryHash);
-		}*/
-		//printf("QueryHash %d \n", queryHash);
-		int bucketStart = dev_hashKeys[tableSize * tableIdx + queryHash];
-		int bucketEnd = tableIdx * tableSize + tableSize <= tableSize * tableIdx + queryHash + 1 ? params.N_data * tableIdx + params.N_data : dev_hashKeys[tableSize * tableIdx + queryHash + 1];
+		// Find bucket place
+		int queryHashKey = dev_bucketKeysQueries[queryHashIdx + tableIdx];
+		int bucketStart = dev_hashKeys[tableSize * tableIdx + queryHashKey];
+		int bucketEnd = queryHashKey >= tableSize - 1 ? tableIdx * params.N_data + params.N_data : dev_hashKeys[tableIdx * tableSize + queryHashKey + 1];
 
+		//scan bucket
 		for (int bucketIdx = bucketStart + lane; bucketIdx < bucketEnd; bucketIdx += WARPSIZE) {
 			int dataIdx = dev_buckets[bucketIdx];
+
 			float distance = runDistanceFunction(params.distanceFunc, &params.data[dataIdx * params.dimensions], &params.queries[queryIdx], params.dimensions, magnitudeQuery);
 
+			Point point = createPoint(dataIdx, distance);
 
-			//if (dataIdx >= params.N_data) {
-			//	printf("Invalid dataIdx: %d \n", dataIdx); 
-			//}
-
-			//if (bucketIdx >= params.N_data * params.tables) {
-			//	printf("Invalid bucketIdx: %d \n", bucketIdx); 
-			//}
-			//if (queuePosition >= THREAD_QUEUE_SIZE) {
-			//	int mask = __popc(__activemask());
-			//	//printf("Invalid queuePosition: %d in lane %d for warp %d\n QueryHash: %d, BucketStart: %d, BucketEnd: %d tableIdx: %d, mask: %d\n", queuePosition, lane, warpId, queryHash, bucketStart, bucketEnd, tableIdx, mask);
-			//}
-
-			//printf("Calculated distance: %f. DataIdx: %d, QueryIdx: %d \n", distance, dataIdx, queryIdx);
-			Point currentPoint = createPoint(dataIdx, distance);
-			//
-			//if (currentPoint.distance < maxKDistance) {
-			//	//threadQueue[queuePosition++] = currentPoint;
-			//	queuePosition++;
-			//}
-
-
-			//if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
-			//	queuePosition = 0;
-			//	startSort(threadQueue, swapPoint, sortParameters);
-			//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
-			//	//printQueue(threadQueue);
-			//}
-
-			for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
-				if (currentPoint.distance < threadQueue[j].distance) {
-					swapPoint = threadQueue[j];
-					threadQueue[j] = currentPoint;
-					currentPoint = swapPoint;
+			for (int i = candidateSetSize - 1; i >= 0; i--) {
+				if (point.distance < threadQueue[i].distance) {
+					swapPoint = threadQueue[i];
+					threadQueue[i] = point;
+					point = swapPoint;
 				}
 			}
 
-			////Verify that head of thread queue is not smaller than biggest k distance.
 			if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
 				startSort(threadQueue, swapPoint, sortParameters);
 				maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
 			}
 
 		}
+
+		// Might need at sort here
+		/*if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance)) {
+			startSort(threadQueue, swapPoint, sortParameters);
+			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+		}*/
 	}
 
-	startSort(threadQueue, swapPoint, sortParameters);
-
 	//printQueue(threadQueue);
+
+	startSort(threadQueue, swapPoint, sortParameters);
 
 	//Copy result from warp queues to result array in reverse order. 
 	int kIdx = (WARPSIZE - lane) - 1;
@@ -197,7 +173,7 @@ void scan(LaunchDTO<T> params, short* dev_bucketKeysQueries, int* dev_hashKeys, 
 
 template<class T> __global__
 void removeDuplicates(LaunchDTO<T> params, Point* duplicateResult, Point* result) {
-	int threadId = (blockIdx.x * gridDim.x) + threadIdx.x;
+	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int queryId = threadId;
 
 	if (!(queryId < params.N_queries)) {
@@ -248,6 +224,8 @@ Point* runLsh(LaunchDTO<T> params) {
 		hashKeys[i] = 0; 
 	}
 
+	printf("tableSize: %d \n", tableSize); 
+
 	int* dev_hashKeys = mallocArray(hashKeys, totalBucketCount, true); 
 	int numberOfThreads = calculateThreadsLocal(params.N_queries);
 	int numberOfBlocks = calculateBlocksLocal(params.N_queries);
@@ -274,13 +252,13 @@ Point* runLsh(LaunchDTO<T> params) {
 
 	copyArrayToHost(hashKeys, dev_hashKeys, totalBucketCount);
 
-	int bucketSum = 0;
-	for (int i = 0; i < totalBucketCount; i++) {
-		printf("[%d] = %d \n", i, hashKeys[i]);
-		bucketSum += hashKeys[i];
-	}
+	//int bucketSum = 0;
+	//for (int i = 0; i < totalBucketCount; i++) {
+	//	printf("[%d] = %d \n", i, hashKeys[i]);
+	//	bucketSum += hashKeys[i];
+	//}
 
-	printf("Buckets sum: %d\n", bucketSum);
+	//printf("Buckets sum: %d\n", bucketSum);
 
 	printf("Building bucket indexes \n");
 	buildHashBucketIndexes << <1, params.tables >> > (params.N_data,tableSize, dev_hashKeys);
@@ -288,9 +266,9 @@ Point* runLsh(LaunchDTO<T> params) {
 
 	copyArrayToHost(hashKeys, dev_hashKeys, totalBucketCount); 
 	
-	for (int i = 0; i < totalBucketCount; i++) {
+	/*for (int i = 0; i < totalBucketCount; i++) {
 		printf("[%d] = %d \n", i , hashKeys[i]);
-	}
+	}*/
 
 
 	int* buckets = (int*)malloc(params.N_data * params.tables * sizeof(int));
@@ -320,6 +298,16 @@ Point* runLsh(LaunchDTO<T> params) {
 	printf("Running scan \n");
 	scan << <numberOfBlocks, numberOfThreads>> > (params, dev_bucketKeysQueries, dev_hashKeys, dev_buckets, tableSize, dev_resultsDuplicates);
 	waitForKernel(); 
+
+	/*copyArrayToHost(resultsDuplicates, dev_resultsDuplicates, duplicateResultSize);
+
+	for (int qi = 0; qi < 40 * 32; qi++) {
+		printf("Query: %d\n", qi);
+		for (int i = 0; i < THREAD_QUEUE_SIZE * WARPSIZE; i++) {
+			printf("[%d] = (%d,%f)\n", i, resultsDuplicates[qi * THREAD_QUEUE_SIZE * WARPSIZE + i].ID, resultsDuplicates[qi * THREAD_QUEUE_SIZE * WARPSIZE + i].distance)
+		}
+	}*/
+
 
 	Point* results = (Point*)malloc(params.N_queries * params.k * sizeof(Point));
 	Point* dev_results = mallocArray(results, params.N_queries * params.k);

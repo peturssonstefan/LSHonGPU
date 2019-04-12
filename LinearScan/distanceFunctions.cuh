@@ -35,6 +35,7 @@ float angularDistance(float* data, float* query, int dimensions, float magnitude
 	magnitude_data = sqrt(magnitude_data);
 
 	angular_distance = 1 -(dotProduct / (magnitude_query * magnitude_data));
+
 	return angular_distance;
 }
 

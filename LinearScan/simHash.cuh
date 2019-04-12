@@ -28,7 +28,7 @@ void sketchDataGeneric(float* data, float* randomVectors, int size, int dimensio
 				for (int dimIndex = 0; dimIndex < dimensions; dimIndex++) {
 					dot += data[pointIndex + dimIndex] * randomVectors[randomVectorIndex + dimIndex];
 				}
-				unsigned int bit = 0; //dot >= 0 ? 1 : 0;
+				unsigned int bit = dot >= 0 ? 1 : 0;
 				sketch |= bit << bitIndex;
 
 			}
