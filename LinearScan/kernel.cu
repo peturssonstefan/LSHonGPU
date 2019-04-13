@@ -55,14 +55,15 @@ Point* linearScans(int implementation, int k, int d, int N_query, int N_data, fl
 }
 
 
-Point* LSH(int implementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
+Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
 	Point* res;
 
 	switch (implementation)
 	{
 	case 3:
-		LaunchDTO<unsigned int> params = setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries, bucketKeyBits,tables);
-		res = runLsh(params);
+		LaunchDTO<unsigned int> params = setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries);
+		LshLaunchDTO<unsigned short> lshParams = setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, N_data, N_query);
+		res = runLsh(params, lshParams);
 		break;
 	default:
 		printf("Invalid implementation selected for LSH. \n");
@@ -91,6 +92,7 @@ int main(int argc, char **argv)
 	int framework = atoi(argv[10]);
 	int bucketKeyBits = atoi(argv[11]); 
 	int tables = atoi(argv[12]); 
+	int keysImplementation = atoi(argv[13]);
 	int N_data = 0;
 	int N_query = 0;
 	int d = 0;
@@ -117,7 +119,7 @@ int main(int argc, char **argv)
 		res = linearScans(implementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc); 
 	}
 	else {
-		res = LSH(implementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables); 
+		res = LSH(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables);
 	}
 
 	if (shouldRunValidation) {

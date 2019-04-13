@@ -347,7 +347,7 @@ inline Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int charSize = 255;
 
-	LaunchDTO<T> launchDTO = setupLaunchDTO<T>(implementation, DISTANCE_FUNCTION, k, d, sketchedDim, N_query, N_data, data, queries, 0, 0);
+	LaunchDTO<T> launchDTO = setupLaunchDTO<T>(implementation, DISTANCE_FUNCTION, k, d, sketchedDim, N_query, N_data, data, queries);
 	printf("Done setting up DTO \n");
 
 	//Setup query array.

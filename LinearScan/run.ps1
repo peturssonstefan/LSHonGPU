@@ -10,7 +10,8 @@ param(
     $queueSize = '8',
     $framework = '0',
     $bucketKeyBits = '16',
-    $tables = 1
+    $tables = 1,
+    $keysImplementation = 3
 )
 
 .\changeVariables -queueSize $queueSize
@@ -23,6 +24,6 @@ if($compile){
 $fileexe = ".\knn.exe"
 
 Write-Host "Running program" -ForegroundColor Green
-Write-Host "$($fileexe) ..\datasets\$($dataset)_data.txt ..\datasets\$($dataset)_queries.txt ..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt $($validate) $($writeResults) $($k) $($implementation) $($sketchDim) $($distanceFunc) $($framework) $($bucketKeyBits) $($tables)" -ForegroundColor Green
+Write-Host "$($fileexe) ..\datasets\$($dataset)_data.txt ..\datasets\$($dataset)_queries.txt ..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt $($validate) $($writeResults) $($k) $($implementation) $($sketchDim) $($distanceFunc) $($framework) $($bucketKeyBits) $($tables) $($keysImplementation)" -ForegroundColor Green
 
-& $fileexe "..\datasets\$($dataset)_data.txt" "..\datasets\$($dataset)_queries.txt" "..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables
+& $fileexe "..\datasets\$($dataset)_data.txt" "..\datasets\$($dataset)_queries.txt" "..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation

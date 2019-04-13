@@ -21,7 +21,17 @@ struct LaunchDTO
 	int dataSize; 
 	int querySize; 
 	int resultSize; 
+	Point* results; 
+};
+
+
+template <class T>
+struct LshLaunchDTO
+{
+	T* dataKeys; 
+	T* queryKeys;
+	int keyImplementation; 
 	int bucketKeyBits;
 	int tables;
-	Point* results; 
+	int tableSize; 
 };
