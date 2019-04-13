@@ -18,7 +18,7 @@ void printQueue(Point* queue) {
 }
 
 template<class T>
-void runSketchSimHash(LaunchDTO<T> params, short* dev_bucketKeysData, short* dev_bucketKeysQueries, int numberOfBlocks, int numberOfThreads) {
+void runSketchSimHash(LaunchDTO<T> params, unsigned short* dev_bucketKeysData, unsigned short* dev_bucketKeysQueries, int numberOfBlocks, int numberOfThreads) {
 	float* randomVectors = generateRandomVectors(params.tables * params.dimensions * params.bucketKeyBits);
 	float* dev_randomVectors = mallocArray(randomVectors, params.tables * params.dimensions * params.bucketKeyBits, true);
 	sketchDataGeneric<<<numberOfBlocks, numberOfThreads>>>(params.data, dev_randomVectors, params.N_data, params.dimensions, params.tables, params.bucketKeyBits, dev_bucketKeysData);
@@ -28,7 +28,7 @@ void runSketchSimHash(LaunchDTO<T> params, short* dev_bucketKeysData, short* dev
 }
 
 template <class T>
-void sketchPoints(LaunchDTO<T> params, short* dev_bucketKeysData, short* dev_bucketKeysQueries, int numberOfBlocks, int numberOfThreads) {
+void sketchPoints(LaunchDTO<T> params, unsigned short* dev_bucketKeysData, unsigned short* dev_bucketKeysQueries, int numberOfBlocks, int numberOfThreads) {
 	switch (params.implementation) {
 	case 3:
 		printf("Using Simhash to sketch \n");
@@ -47,7 +47,7 @@ void sketchPoints(LaunchDTO<T> params, short* dev_bucketKeysData, short* dev_buc
 }
 
 template<class T> __global__ 
-void findBucketDistribution(LaunchDTO<T> params, short* dev_bucketKeysData, int bucketCount, int tableSize,int* hashKeys) {
+void findBucketDistribution(LaunchDTO<T> params, unsigned short* dev_bucketKeysData, int bucketCount, int tableSize,int* hashKeys) {
 	int threadId = blockDim.x * blockIdx.x + threadIdx.x;
 	int threadCount = blockDim.x * gridDim.x;
 	
@@ -71,7 +71,7 @@ void buildHashBucketIndexes(int N_data,int tableSize, int* hashKeys) {
 }
 
 template<class T> __global__
-void distributePointsToBuckets(LaunchDTO<T> params,int tableSize, int* hashKeys, short* dev_bucketKeysData, int* bucketCounters, int* buckets) {
+void distributePointsToBuckets(LaunchDTO<T> params,int tableSize, int* hashKeys, unsigned short* dev_bucketKeysData, int* bucketCounters, int* buckets) {
 	int threadId = (blockIdx.x * gridDim.x) + threadIdx.x;
 	int warpId = threadId / WARPSIZE;
 	int lane = threadId % WARPSIZE;
@@ -87,7 +87,7 @@ void distributePointsToBuckets(LaunchDTO<T> params,int tableSize, int* hashKeys,
 }
 
 template <class T> __global__ 
-void scan(LaunchDTO<T> params, short* dev_bucketKeysQueries, int* dev_hashKeys, int* dev_buckets, int tableSize, Point* result) {
+void scan(LaunchDTO<T> params, unsigned short* dev_bucketKeysQueries, int* dev_hashKeys, int* dev_buckets, int tableSize, Point* result) {
 
 	Point threadQueue[THREAD_QUEUE_SIZE];
 
@@ -121,7 +121,7 @@ void scan(LaunchDTO<T> params, short* dev_bucketKeysQueries, int* dev_hashKeys, 
 
 	for (int tableIdx = 0; tableIdx < params.tables; tableIdx++) {
 		// Find bucket place
-		int queryHashKey = dev_bucketKeysQueries[queryHashIdx + tableIdx];
+		unsigned int queryHashKey = dev_bucketKeysQueries[queryHashIdx + tableIdx];
 		int bucketStart = dev_hashKeys[tableSize * tableIdx + queryHashKey];
 		int bucketEnd = queryHashKey >= tableSize - 1 ? tableIdx * params.N_data + params.N_data : dev_hashKeys[tableIdx * tableSize + queryHashKey + 1];
 
@@ -199,7 +199,7 @@ void removeDuplicates(LaunchDTO<T> params, Point* duplicateResult, Point* result
 }
 
 template<class T>
-void runDistributePointsTobuckets(LaunchDTO<T> params, int tableSize, int* dev_hashKeys, short* dev_bucketKeysData, int* dev_buckets) {
+void runDistributePointsTobuckets(LaunchDTO<T> params, int tableSize, int* dev_hashKeys, unsigned short* dev_bucketKeysData, int* dev_buckets) {
 	int* bucketsCounters = (int*)malloc(tableSize * params.tables * sizeof(int));
 
 	for (int i = 0; i < tableSize * params.tables; i++) {
@@ -230,10 +230,10 @@ Point* runLsh(LaunchDTO<T> params) {
 	int numberOfThreads = calculateThreadsLocal(params.N_queries);
 	int numberOfBlocks = calculateBlocksLocal(params.N_queries);
 	//Malloc place for bucket keys. 
-	short* bucketKeysData = (short*)malloc(params.tables * params.N_data * sizeof(short)); 
-	short* dev_bucketKeysData = mallocArray(bucketKeysData, params.tables * params.N_data); 
-	short* bucketKeysQueries = (short*)malloc(params.tables * params.N_queries * sizeof(short));
-	short* dev_bucketKeysQueries = mallocArray(bucketKeysQueries, params.tables * params.N_queries);
+	unsigned short* bucketKeysData = (unsigned short*)malloc(params.tables * params.N_data * sizeof(unsigned short));
+	unsigned short* dev_bucketKeysData = mallocArray(bucketKeysData, params.tables * params.N_data);
+	unsigned short* bucketKeysQueries = (unsigned short*)malloc(params.tables * params.N_queries * sizeof(unsigned short));
+	unsigned short* dev_bucketKeysQueries = mallocArray(bucketKeysQueries, params.tables * params.N_queries);
 
 	printf("Building key hashes \n");
 	sketchPoints(params, dev_bucketKeysData, dev_bucketKeysQueries, numberOfBlocks, numberOfThreads);

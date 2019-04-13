@@ -81,9 +81,9 @@ Point* runSimHashJLLinearScan(int k, int d, int sketchedDim, int N_query, int N_
 	float* randomVectors = generateRandomVectors(randomVectorSize, sketchedDim);
 	float* dev_randomVectors = mallocArray(randomVectors, randomVectorSize, true);
 
-	sketch << <1, 1 >> > (launchDTO, launchDTO.data, dev_randomVectors, N_data, launchDTO.sketchedData);
+	sketch << <numberOfBlocks, numberOfThreads >> > (launchDTO, launchDTO.data, dev_randomVectors, N_data, launchDTO.sketchedData);
 	waitForKernel(); 
-	sketch << <1, 1 >> > (launchDTO, launchDTO.queries, dev_randomVectors, N_query, launchDTO.sketchedQueries);
+	sketch << <numberOfBlocks, numberOfThreads>> > (launchDTO, launchDTO.queries, dev_randomVectors, N_query, launchDTO.sketchedQueries);
 	waitForKernel(); 
 	
 	float* sketchedData = (float*)malloc(launchDTO.sketchedDataSize * sizeof(float)); 

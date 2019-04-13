@@ -9,9 +9,10 @@
 #include "pointExtensions.cuh"
 #include "candidateSetScanner.cuh"
 #include "launchDTO.h"
+#include "distanceFunctions.cuh"
 
 __inline__ __device__
-void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned int* data, unsigned int* queries, int sketchDim, int nData, int N_query, int k, int distFunc,Point* result)
+void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned int* data, unsigned int* queries, int sketchDim, int nData, int N_query, int k, int distFunc, int implementation, Point* result)
 {
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE; 
@@ -26,7 +27,6 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
 
-
 //#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = createPoint(-1, SKETCH_COMP_SIZE * sketchDim + 1);
@@ -35,14 +35,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	for (int i = lane; i < nData; i += WARPSIZE) {
 		int hammingDistance = 0;
 
-//#pragma unroll
-		for (int j = 0; j < sketchDim; j++) {
-			unsigned int queryValue = queries[queryIdx + j];
-			unsigned int dataValue = data[sketchDim*i + j]; 
-			unsigned int bits = queryValue ^ dataValue; 
-			int bitCount = __popc(bits);
-			hammingDistance += bitCount;
-		}
+		hammingDistance = runSketchedDistanceFunction(implementation, &data[sketchDim*i], &queries[queryIdx], sketchDim);
 
 		Point currentPoint = createPoint(i, (float)hammingDistance); 
 
@@ -103,21 +96,12 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 	}
 
 	for (int i = lane; i < launchDTO.N_data; i += WARPSIZE) {
-		float dotProduct = 0;
-
-		//#pragma unroll
-		for (int j = 0; j < launchDTO.sketchDim; j++) {
-			
-			float queryVal = launchDTO.sketchedQueries[queryIdx + j];
-			float dataVal = launchDTO.sketchedData[launchDTO.sketchDim*i + j];
-			//float dist = queryVal * dataVal;
-			float dist = pow((queryVal - dataVal),2); 
-			//float dist = abs(queryVal - dataVal);
-			dotProduct += dist;
-		}
+		float distance = 0;
 		
+		distance = runSketchedDistanceFunction(launchDTO.implementation, &launchDTO.sketchedData[launchDTO.sketchDim*i], &launchDTO.sketchedQueries[queryIdx], launchDTO.sketchDim); 
 
-		Point currentPoint = createPoint(i, dotProduct);
+
+		Point currentPoint = createPoint(i, distance);
 
 		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
 			if (currentPoint.distance < threadQueue[j].distance) {
@@ -165,7 +149,7 @@ float jaccardSimOneBit(T data, T query) {
 
 
 template<class T> __inline__ __device__
-void scanJaccardDistance(float* originalData, float* originalQuery, int dimensions, T * data, T * queries, int sketchDim, int nData, int N_query, int k, int distFunc,Point* result)
+void scanJaccardDistance(float* originalData, float* originalQuery, int dimensions, T * data, T * queries, int sketchDim, int nData, int N_query, int k, int distFunc, int implementation,Point* result)
 {
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE;
@@ -189,20 +173,8 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 	}
 
 	for (int i = lane; i < nData; i += WARPSIZE) {
-		float jaccardSimilarity = 0;
 
-		for (int hashIdx = 0; hashIdx < sketchDim; hashIdx++) {
-			T dataSketch = data[sketchDim*i + hashIdx];
-			T querySketch = queries[queryIdx + hashIdx];
-			jaccardSimilarity += sketchTypeOneBit ? jaccardSimOneBit(dataSketch, querySketch) : jaccardSim(dataSketch, querySketch);
-		}
-
-
-		jaccardSimilarity /= similarityDivisor;
-
-		float jaccardDistance = 1 - jaccardSimilarity;
-
-		//printf("Jaccard distance: %f \n", jaccardDistance);
+		float jaccardDistance = runSketchedDistanceFunction(implementation, &data[sketchDim*i], &queries[queryIdx], sketchDim, similarityDivisor);
 
 		Point currentPoint = createPoint(i, jaccardDistance);
 

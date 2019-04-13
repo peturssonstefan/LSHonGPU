@@ -184,12 +184,12 @@ void sketchData(LaunchDTO<T> launchDTO, int* dev_m_indexMap, int* dev_m_bounds, 
 }
 
 template<class T> __global__
-void scan(float* originalData, float* originalQueries, int dimensions, T * data, T * queries, int sketchDim, int N_data, int N_query, int k, Point* result) {
+void scan(float* originalData, float* originalQueries, int dimensions, T * data, T * queries, int sketchDim, int N_data, int N_query, int k, int implementation, Point* result) {
 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions;
 	if (queryIndex < dimensions * N_query) {
-		scanJaccardDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION, result);
+		scanJaccardDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION, implementation, result);
 	}
 }
 
@@ -317,7 +317,7 @@ Point* runScan(LaunchDTO<T> launchDTO, int numberOfBlocks, int numberOfThreads) 
 	Point* results = (Point*)malloc(launchDTO.resultSize * sizeof(Point));
 
 	before = clock();
-	scan << <numberOfBlocks, numberOfThreads >> > (launchDTO.data, launchDTO.queries, launchDTO.dimensions, launchDTO.sketchedData, launchDTO.sketchedQueries, launchDTO.sketchDim, launchDTO.N_data, launchDTO.N_queries, launchDTO.k, launchDTO.results);
+	scan << <numberOfBlocks, numberOfThreads >> > (launchDTO.data, launchDTO.queries, launchDTO.dimensions, launchDTO.sketchedData, launchDTO.sketchedQueries, launchDTO.sketchDim, launchDTO.N_data, launchDTO.N_queries, launchDTO.k, launchDTO.implementation, launchDTO.results);
 	waitForKernel();
 	time_lapsed = clock() - before;
 	printf("Time for scanning: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));

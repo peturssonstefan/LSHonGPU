@@ -69,3 +69,88 @@ float runDistanceFunction(int func, float* data, float* query, int dimensions, f
 
 	return distance; 
 }
+
+template<class T> __inline__ __device__
+float hammingDistanceFunc(T* data, T* query, int sketchDim) {
+	float hammingDistance = 0;
+	for (int j = 0; j < sketchDim; j++) {
+		unsigned int queryValue = query[j];
+		unsigned int dataValue = data[j];
+		unsigned int bits = queryValue ^ dataValue;
+		int bitCount = __popc(bits);
+		hammingDistance += bitCount;
+	}
+
+	return hammingDistance;
+}
+
+template<class T> __inline__ __device__
+float euclideanDistanceFunc(T* data, T* query, int sketchDim) {
+	float distance = 0;
+	
+	for (int j = 0; j < sketchDim; j++) {
+		float queryVal = query[j];
+		float dataVal = data[j];
+		float dist = pow((queryVal - dataVal), 2);
+		distance += dist;
+	}
+
+	return distance;
+}
+
+
+template<class T> __inline__ __device__
+float jaccardDistanceFunc(T* data, T* query, int sketchDim, int similarityDivisor) {
+	float jaccardSimilarity = 0;
+
+	for (int hashIdx = 0; hashIdx < sketchDim; hashIdx++) {
+		T dataSketch = data[hashIdx];
+		T querySketch = query[hashIdx];
+		jaccardSimilarity += dataSketch == querySketch ? 1 : 0;
+	}
+
+	jaccardSimilarity /= similarityDivisor;
+
+	float jaccardDistance = 1 - jaccardSimilarity;
+
+	return jaccardDistance;
+}
+
+template<class T> __inline__ __device__
+float jaccardOneBitDistanceFunc(T* data, T* query, int sketchDim, int similarityDivisor) {
+	float jaccardSimilarity = 0;
+
+	for (int hashIdx = 0; hashIdx < sketchDim; hashIdx++) {
+		unsigned int dataSketch = data[hashIdx];
+		unsigned int querySketch = query[hashIdx];
+		int diff = (SKETCH_COMP_SIZE - __popc(dataSketch ^ querySketch));
+		jaccardSimilarity += diff;
+	}
+
+	jaccardSimilarity /= similarityDivisor;
+
+	float jaccardDistance = 1 - jaccardSimilarity;
+
+	return jaccardDistance;
+}
+
+template<class T> __inline__ __device__
+float runSketchedDistanceFunction(int implementation, T* data, T* query, int sketchDim, int similarityDivisor = 1) {
+	switch (implementation)
+	{
+	case 3:
+		return hammingDistanceFunc(data, query, sketchDim);
+		break;
+	case 4: 
+		return jaccardDistanceFunc(data, query, sketchDim, similarityDivisor);
+		break;
+	case 5: 
+		return jaccardOneBitDistanceFunc(data, query, sketchDim, similarityDivisor);
+		break;
+	case 6:
+		return euclideanDistanceFunc(data, query, sketchDim);
+		break;
+		default:
+			break;
+	}
+}

@@ -15,6 +15,7 @@
 #include "randomVectorGenerator.h"
 
 #define DISTANCE_FUNCTION 1
+#define IMPLEMENTATION 3
 
 __global__
 void sketch(float* data, float* randomVectors, int size, int dimensions, int sketchDim, unsigned int* sketchedData) {
@@ -49,7 +50,7 @@ void scan(float* originalData, float* originalQueries, int dimensions, unsigned 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions; 
 	if (queryIndex < dimensions * N_query) {
-		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION,result);
+		scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION, IMPLEMENTATION, result);
 	}
 }
 
@@ -98,16 +99,8 @@ Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_da
 	clock_t time_lapsed = clock() - before;
 	printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
-	copyArrayToHost(sketchedData, dev_sketchedData, sketchedDataSize);
-	copyArrayToHost(sketchedQuery, dev_sketchedQuery, sketchedQuerySize);
-
-	for (int i = 0; i < 10; i++) {
-		printf("Query %d: \n", i);
-		for (int j = 0; j < sketchedDim; j++) {
-			printf("%d \n", sketchedQuery[i*sketchedDim + j]);
-		}
-
-	}
+	//copyArrayToHost(sketchedData, dev_sketchedData, sketchedDataSize);
+	//copyArrayToHost(sketchedQuery, dev_sketchedQuery, sketchedQuerySize);
 
 	//Setup Result Array 
 	Point* results = (Point*)malloc(resultSize * sizeof(Point));
