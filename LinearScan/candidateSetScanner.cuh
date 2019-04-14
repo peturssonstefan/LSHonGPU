@@ -21,7 +21,7 @@ void candidateSetScan(float* data, float* query, int dimensions, Point* candidat
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 
 		int index = candidates[i].ID * dimensions; 
-		float distance = 0.0; // reset value.
+		float distance = 0.0;
 
 		distance = runDistanceFunction(distFunc, &data[index], query, dimensions, magnitude_query);
 

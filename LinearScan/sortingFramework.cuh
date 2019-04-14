@@ -100,18 +100,20 @@ void setLane(Point& val, int lane, int otherLane, int otherId, float distance) {
 }
 
 __inline__ __device__
-void subSort(int& valId, float& valDistance ,int size, int lane) {
+void subSort(Point& val,int size, int lane) {
 
 	for (int offset = size / 2; offset > 0; offset /= 2) {
 		
 		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-		int ID = __shfl_xor_sync(FULL_MASK, valId, offset, WARPSIZE);
-		float distance = __shfl_xor_sync(FULL_MASK, valDistance, offset, WARPSIZE);
+		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
+		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
 		
 		bool direction = lane < otherID;
-		bool distanceDirection = valDistance > distance;
+		//bool distanceDirection = valDistance > distance;
 
-		int id = direction ? 
+		val = direction ? max(val, createPoint(ID, distance)) : min(val, createPoint(ID, distance));
+
+		/*int id = direction ? 
 			distanceDirection ? valId : ID 
 			: !distanceDirection ? valId : ID;
 
@@ -121,7 +123,7 @@ void subSort(int& valId, float& valDistance ,int size, int lane) {
 
 		
 		valId = id;
-		valDistance = distanceVal;
+		valDistance = distanceVal;*/
 
 
 		//setLane(val, lane, otherID, ID, distance); 
@@ -139,12 +141,16 @@ void subSortUnrolled(Point& val, int lane) {
 		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
 
 		if (threadIdx.x < otherID) {
-			val.ID = val.distance > distance ? val.ID : ID;
-			val.distance = val.distance > distance ? val.distance : distance;
+			/*val.ID = val.distance > distance ? val.ID : ID;
+			val.distance = val.distance > distance ? val.distance : distance;*/
+
+			val = max(val, createPoint(ID, distance));
 		}
 		else {
-			val.ID = val.distance < distance ? val.ID : ID;
-			val.distance = val.distance < distance ? val.distance : distance;
+			/*val.ID = val.distance < distance ? val.ID : ID;
+			val.distance = val.distance < distance ? val.distance : distance;*/
+
+			val = min(val, createPoint(ID, distance));
 		}
 	}
 }
@@ -172,7 +178,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
 			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
 			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			subSort(val[i].ID, val[i].distance, pairSize * 2, params.lane); 
+			subSort(val[i], pairSize * 2, params.lane); 
 		}
 	}
 

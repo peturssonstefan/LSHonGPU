@@ -18,23 +18,37 @@ void printQueue(Point* queue) {
 }
 
 template<class T, class K>
-void runSketchSimHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfBlocks, int numberOfThreads) {
-	float* randomVectors = generateRandomVectors(lshParams.tables * params.dimensions * lshParams.bucketKeyBits);
-	float* dev_randomVectors = mallocArray(randomVectors, lshParams.tables * params.dimensions * lshParams.bucketKeyBits, true);
-	sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.data, dev_randomVectors, params.N_data, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.dataKeys);
-	waitForKernel();
-	sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.queries, dev_randomVectors, params.N_queries, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.queryKeys);
-	waitForKernel();
+void runSketchSimHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
+	float randomVectorsSize = isHashKeys ? lshParams.tables * params.dimensions * lshParams.bucketKeyBits : params.sketchDim * params.dimensions * SKETCH_COMP_SIZE;
+	
+	float* randomVectors = (float*)malloc(randomVectorsSize * sizeof(float));
+	generateRandomVectors(randomVectors,randomVectorsSize);
+	float* dev_randomVectors = mallocArray(randomVectors, randomVectorsSize, true);
+
+	if (isHashKeys) {
+		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.data, dev_randomVectors, params.N_data, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.dataKeys, true);
+		waitForKernel();
+		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.queries, dev_randomVectors, params.N_queries, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.queryKeys, true);
+		waitForKernel();
+	}
+	else {
+		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.data, dev_randomVectors, params.N_data, params.dimensions, params.sketchDim, SKETCH_COMP_SIZE, params.sketchedData);
+		waitForKernel();
+		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.queries, dev_randomVectors, params.N_queries, params.dimensions, params.sketchDim, SKETCH_COMP_SIZE, params.sketchedQueries);
+		waitForKernel();
+	}
+	
+	freeDeviceArray(dev_randomVectors);
 	free(randomVectors);
-	freeDeviceArray(dev_randomVectors); 
 }
 
 template <class T, class K>
-void generateKeys(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfBlocks, int numberOfThreads) {
-	switch (params.implementation) {
+void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
+	int implementation = isHashKeys ? lshParams.keyImplementation : params.implementation;
+	switch (implementation) {
 	case 3:
 		printf("Using Simhash to sketch \n");
-		runSketchSimHash(params, lshParams, numberOfBlocks, numberOfThreads);
+		runSketchSimHash(params, lshParams, numberOfBlocks, numberOfThreads, isHashKeys);
 		break; 
 	case 4: 
 		printf("Using Weighted Minhash to sketch \n");
@@ -43,25 +57,6 @@ void generateKeys(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfBl
 		printf("Using 1 Bit Weighted Minhash to sketch \n");
 		break; 
 	case 6: 
-		printf("Using Johnson Lindenstrauss to sketch \n");
-		break;
-	}
-}
-
-template <class T, class K>
-void sketchData(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfThreads, int numberOfBuckets) {
-	switch (params.implementation) {
-	case 3:
-		printf("Using Simhash to sketch \n");
-		runSketchSimHash(params, lshParams, numberOfBlocks, numberOfThreads);
-		break;
-	case 4:
-		printf("Using Weighted Minhash to sketch \n");
-		break;
-	case 5:
-		printf("Using 1 Bit Weighted Minhash to sketch \n");
-		break;
-	case 6:
 		printf("Using Johnson Lindenstrauss to sketch \n");
 		break;
 	}
@@ -108,6 +103,8 @@ void distributePointsToBuckets(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, i
 template <class T, class K> __global__ 
 void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int* dev_buckets, Point* result) {
 
+	bool runWithSketchedData = true;
+
 	Point threadQueue[THREAD_QUEUE_SIZE];
 
 	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -118,12 +115,17 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int queryHashIdx = warpId * lshParams.tables;
+	int querySketchedIdx = warpId * params.sketchDim;
 	int queryIdx = warpId * params.dimensions; 
 	int resultIdx = warpId * THREAD_QUEUE_SIZE * WARPSIZE;
 	float magnitudeQuery = 0; 
 	Point swapPoint;
 	Parameters sortParameters;
 	sortParameters.lane = lane; 
+
+	bool sketchTypeOneBit = sizeof(T) > 1;
+	int similarityDivisor = sketchTypeOneBit ? params.sketchDim * SKETCH_COMP_SIZE : params.sketchDim;
+
 	int queuePosition = 0;
 	
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
@@ -139,6 +141,7 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 	
 
 	for (int tableIdx = 0; tableIdx < lshParams.tables; tableIdx++) {
+		
 		// Find bucket place
 		unsigned int queryHashKey = lshParams.queryKeys[queryHashIdx + tableIdx];
 		int bucketStart = dev_hashKeys[lshParams.tableSize * tableIdx + queryHashKey];
@@ -148,8 +151,14 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 		for (int bucketIdx = bucketStart + lane; bucketIdx < bucketEnd; bucketIdx += WARPSIZE) {
 			int dataIdx = dev_buckets[bucketIdx];
 
-			float distance = runDistanceFunction(params.distanceFunc, &params.data[dataIdx * params.dimensions], &params.queries[queryIdx], params.dimensions, magnitudeQuery);
 
+			float distance = runWithSketchedData ? 
+				  runSketchedDistanceFunction(params.implementation, &params.sketchedData[dataIdx * params.sketchDim], &params.sketchedQueries[querySketchedIdx], params.sketchDim, similarityDivisor)
+				: runDistanceFunction(params.distanceFunc, &params.data[dataIdx * params.dimensions], &params.queries[queryIdx], params.dimensions, magnitudeQuery);
+			
+			if (warpId == 1 && dataIdx == 80)
+				printf("Distance %f \n", distance);
+			
 			Point point = createPoint(dataIdx, distance);
 
 			for (int i = candidateSetSize - 1; i >= 0; i--) {
@@ -174,10 +183,13 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 		}*/
 	}
 
-	//printQueue(threadQueue);
-
+	if (runWithSketchedData) {
+		candidateSetScan(params.data, &params.queries[queryIdx], params.dimensions, threadQueue, params.k, params.distanceFunc);
+	}
+	
 	startSort(threadQueue, swapPoint, sortParameters);
 
+	
 	//Copy result from warp queues to result array in reverse order. 
 	int kIdx = (WARPSIZE - lane) - 1;
 	int warpQueueIdx = THREAD_QUEUE_SIZE - 1;
@@ -258,14 +270,9 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	int* dev_hashKeys = mallocArray(hashKeys, totalBucketCount, true); 
 	int numberOfThreads = calculateThreadsLocal(params.N_queries);
 	int numberOfBlocks = calculateBlocksLocal(params.N_queries);
-	//Malloc place for bucket keys. 
-	//unsigned short* bucketKeysData = (unsigned short*)malloc(lshParams.tables * params.N_data * sizeof(unsigned short));
-	//unsigned short* dev_bucketKeysData = mallocArray(bucketKeysData, lshParams.tables * params.N_data);
-	//unsigned short* bucketKeysQueries = (unsigned short*)malloc(lshParams.tables * params.N_queries * sizeof(unsigned short));
-	//unsigned short* dev_bucketKeysQueries = mallocArray(bucketKeysQueries, lshParams.tables * params.N_queries);
 
 	printf("Building key hashes \n");
-	generateKeys(params, lshParams, numberOfBlocks, numberOfThreads);
+	generateHashes(params, lshParams, numberOfBlocks, numberOfThreads, true);
 
 	/*copyArrayToHost(bucketKeysData, dev_bucketKeysData, lshParams.tables * params.N_data);
 	copyArrayToHost(bucketKeysQueries, dev_bucketKeysQueries, lshParams.tables * params.N_queries);*/
@@ -281,13 +288,13 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 
 	copyArrayToHost(hashKeys, dev_hashKeys, totalBucketCount);
 
-	//int bucketSum = 0;
-	//for (int i = 0; i < totalBucketCount; i++) {
-	//	printf("[%d] = %d \n", i, hashKeys[i]);
-	//	bucketSum += hashKeys[i];
-	//}
+	int bucketSum = 0;
+	for (int i = 0; i < totalBucketCount; i++) {
+		printf("[%d] = %d \n", i, hashKeys[i]);
+		bucketSum += hashKeys[i];
+	}
 
-	//printf("Buckets sum: %d\n", bucketSum);
+	printf("Buckets sum: %d\n", bucketSum);
 
 	printf("Building bucket indexes \n");
 	buildHashBucketIndexes << <1, lshParams.tables >> > (params.N_data, lshParams.tableSize, dev_hashKeys);
@@ -311,14 +318,27 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	printf("Distribute points to buckets \n");
 	runDistributePointsTobuckets(params, lshParams, dev_hashKeys, dev_buckets);
 
-	copyArrayToHost(buckets, dev_buckets, params.N_data * lshParams.tables);
+	//copyArrayToHost(buckets, dev_buckets, params.N_data * lshParams.tables);
 
-	printf("Bucket indexs: \n");
+	//printf("Bucket indexs: \n");
 
 	/*for (int i = 0; i < params.N_data * lshParams.tables; i++) {
 		printf("[%d] = %d \n", i, buckets[i]);
 	}*/
 
+
+	//sketch data
+	generateHashes(params, lshParams, numberOfBlocks, numberOfThreads, false);
+
+	//printf("Malloc \n");
+	//T* queriesSketch = (T*)malloc(params.sketchedQueriesSize * sizeof(T));
+	//printf("Copy \n");
+	//copyArrayToHost(queriesSketch, params.sketchedQueries, params.sketchedQueriesSize);
+
+	//printf("Printing \n");
+	//for (int i = 0; i < 100; i++) {
+	//	printf("Sketch: %d \n", queriesSketch[i]);
+	//}
 
 	int duplicateResultSize = numberOfBlocks * numberOfThreads * THREAD_QUEUE_SIZE;
 	Point* resultsDuplicates = (Point*)malloc(duplicateResultSize * sizeof(Point));

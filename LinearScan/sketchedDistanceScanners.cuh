@@ -21,7 +21,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * k;
 	int queryIdx = warpId * sketchDim;
-	int maxKDistance = 0;
+	float maxKDistance = (float)INT_MAX;
 	int warpQueueSize = k / WARPSIZE;
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
@@ -29,7 +29,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 
 //#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-		threadQueue[i] = createPoint(-1, SKETCH_COMP_SIZE * sketchDim + 1);
+		threadQueue[i] = createPoint(-1, maxKDistance);
 	}
 
 	for (int i = lane; i < nData; i += WARPSIZE) {
@@ -57,6 +57,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	
 	//Sort before candidateSetScan if we only do exact calculations on warp queue elements.
 
+
 	//Candidate set scan.
 	candidateSetScan(originalData, originalQuery, dimensions, threadQueue, k, distFunc);
 
@@ -83,7 +84,7 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 	int resultIdx = warpId * launchDTO.k;
 	int queryIdx = warpId * launchDTO.sketchDim;
 	int queryIdxOriginal = warpId * launchDTO.dimensions; 
-	int maxKDistance = 0;
+	float maxKDistance = (float)INT_MAX;
 	int warpQueueSize = launchDTO.k / WARPSIZE;
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
@@ -92,7 +93,7 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 
 	//#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-		threadQueue[i] = createPoint(-1, (float)INT_MAX);
+		threadQueue[i] = createPoint(-1, maxKDistance);
 	}
 
 	for (int i = lane; i < launchDTO.N_data; i += WARPSIZE) {
@@ -158,7 +159,7 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * k;
 	int queryIdx = warpId * sketchDim;
-	int maxKDistance = 0;
+	float maxKDistance = (float)INT_MAX;
 	int warpQueueSize = k / WARPSIZE;
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
@@ -169,7 +170,7 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 
 	//#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-		threadQueue[i] = createPoint(-1, SKETCH_COMP_SIZE * sketchDim + 1);
+		threadQueue[i] = createPoint(-1, maxKDistance);
 	}
 
 	for (int i = lane; i < nData; i += WARPSIZE) {
