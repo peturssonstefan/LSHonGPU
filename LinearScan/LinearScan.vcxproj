@@ -86,7 +86,6 @@
     <CudaCompile Include="memOptimizedLinearScan.cu" />
     <CudaCompile Include="optimizedLinearScan.cu" />
     <CudaCompile Include="simHash.cu" />
-    <CudaCompile Include="simHashJL.cu" />
     <CudaCompile Include="simpleLinearScan.cu" />
   </ItemGroup>
   <ItemGroup>

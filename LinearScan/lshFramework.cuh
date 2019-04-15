@@ -10,6 +10,12 @@
 #include <math.h>
 #include <cuda.h>
 #include "weightedMinHash.cuh"
+#include "simHashJL.cuh"
+
+template<class T>
+void runSketchJL(LaunchDTO<T> params) {
+	simHashJl::runGenericJL(params); 
+}
 
 
 template<class T, class K>
@@ -21,15 +27,15 @@ void runSketchSimHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int number
 	float* dev_randomVectors = mallocArray(randomVectors, randomVectorsSize, true);
 
 	if (isHashKeys) {
-		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.data, dev_randomVectors, params.N_data, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.dataKeys);
+		simHash::sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.data, dev_randomVectors, params.N_data, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.dataKeys);
 		waitForKernel();
-		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.queries, dev_randomVectors, params.N_queries, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.queryKeys);
+		simHash::sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.queries, dev_randomVectors, params.N_queries, params.dimensions, lshParams.tables, lshParams.bucketKeyBits, lshParams.queryKeys);
 		waitForKernel();
 	}
 	else {
-		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.data, dev_randomVectors, params.N_data, params.dimensions, params.sketchDim, SKETCH_COMP_SIZE, params.sketchedData);
+		simHash::sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.data, dev_randomVectors, params.N_data, params.dimensions, params.sketchDim, SKETCH_COMP_SIZE, params.sketchedData);
 		waitForKernel();
-		sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.queries, dev_randomVectors, params.N_queries, params.dimensions, params.sketchDim, SKETCH_COMP_SIZE, params.sketchedQueries);
+		simHash::sketchDataGeneric << <numberOfBlocks, numberOfThreads >> > (params.queries, dev_randomVectors, params.N_queries, params.dimensions, params.sketchDim, SKETCH_COMP_SIZE, params.sketchedQueries);
 		waitForKernel();
 	}
 	
@@ -42,13 +48,12 @@ void runSketchMinHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int number
 
 	if (isHashKeys) {
 		bool oneBitMinHash = lshParams.keyImplementation != 4; 
-		weightedMinHashGeneric(params, lshParams.dataKeys, lshParams.queryKeys, lshParams.tables, lshParams.bucketKeyBits, oneBitMinHash);
+		weightedMinHash::weightedMinHashGeneric(params, lshParams.dataKeys, lshParams.queryKeys, lshParams.tables, lshParams.bucketKeyBits, oneBitMinHash);
 	}
 	else {
 		bool oneBitMinHash = params.implementation != 4;
-		weightedMinHashGeneric(params, params.sketchedData, params.sketchedQueries, params.sketchDim, SKETCH_COMP_SIZE, oneBitMinHash);
+		weightedMinHash::weightedMinHashGeneric(params, params.sketchedData, params.sketchedQueries, params.sketchDim, SKETCH_COMP_SIZE, oneBitMinHash);
 	}
-
 }
 
 
@@ -70,6 +75,12 @@ void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOf
 		break; 
 	case 6: 
 		printf("Using Johnson Lindenstrauss to sketch \n");
+		if (isHashKeys) {
+			printf("JL is not suited as LSH hashkey \n");
+			resetDevice(); 
+			exit(-1);
+		}
+		runSketchJL(params);
 		break;
 	}
 }
@@ -176,30 +187,30 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 			
 			Point point = createPoint(dataIdx, distance);
 
-			//for (int i = candidateSetSize - 1; i >= 0; i--) {
-			//	if (point.distance < threadQueue[i].distance) {
-			//		swapPoint = threadQueue[i];
-			//		threadQueue[i] = point;
-			//		point = swapPoint;
-			//	}
-			//}
-
-			//if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
-			//	startSort(threadQueue, swapPoint, sortParameters);
-			//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
-			//}
-			if (point.distance < maxKDistance || same(point, maxKDistance)) {
-				threadQueue[queuePosition++] = point;
+			for (int i = candidateSetSize - 1; i >= 0; i--) {
+				if (point.distance < threadQueue[i].distance) {
+					swapPoint = threadQueue[i];
+					threadQueue[i] = point;
+					point = swapPoint;
+				}
 			}
 
-
-
-			if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
+			if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
 				startSort(threadQueue, swapPoint, sortParameters);
 				maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
-				//printQueue(threadQueue);
-				queuePosition = 0;
 			}
+			//if (point.distance < maxKDistance || same(point, maxKDistance)) {
+			//	threadQueue[queuePosition++] = point;
+			//}
+
+
+
+			//if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
+			//	startSort(threadQueue, swapPoint, sortParameters);
+			//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+			//	//printQueue(threadQueue);
+			//	queuePosition = 0;
+			//}
 
 		}
 
@@ -309,10 +320,10 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	copyArrayToHost(bucketKeysData, lshParams.dataKeys, lshParams.tables * params.N_data);
 	copyArrayToHost(bucketKeysQueries, lshParams.queryKeys, lshParams.tables * params.N_queries);
 
-	printf("Bucket hashes data\n");
+	/*printf("Bucket hashes data\n");
 	for (int i = 0; i < lshParams.tables * params.N_data; i++) {
 		printf("[%u] = %d \n", i, bucketKeysData[i]);
-	}
+	}*/
 
 
 
@@ -365,7 +376,7 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	//sketch data
 	generateHashes(params, lshParams, numberOfBlocks, numberOfThreads, false);
 
-	printf("Malloc \n");
+	/*printf("Malloc \n");
 	T* dataSketch = (T*)malloc(params.sketchedDataSize * sizeof(T));
 	printf("Copy \n");
 	copyArrayToHost(dataSketch, params.sketchedData, params.sketchedDataSize);
@@ -377,7 +388,7 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 			printf("%d ", dataSketch[i * params.sketchDim + j]);
 
 		printf("\n"); 
-	}
+	}*/
 
 	int duplicateResultSize = numberOfBlocks * numberOfThreads * THREAD_QUEUE_SIZE;
 	Point* resultsDuplicates = (Point*)malloc(duplicateResultSize * sizeof(Point));

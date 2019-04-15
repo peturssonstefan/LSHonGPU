@@ -1,0 +1,30 @@
+ $($validate) $($writeResults) $($k) $($implementation) $($sketchDim) $($distanceFunc) $($framework) $($bucketKeyBits) $($tables) $($keysImplementation)
+
+.\knn.exe ..\datasets\glove_data.txt ..\datasets\glove_queries.txt ..\datasets\glove_1_validation32k.txt 1 0 32 3 4 1 1 8 2 3
+Averge recall: 0.383611
+Total average: 1.17411
+
+
+.\knn.exe ..\datasets\glove_data.txt ..\datasets\glove_queries.txt ..\datasets\glove_1_validation32k.txt 1 0 32 3 4 1 1 16 2 3
+Averge recall: 0.0978334
+Total average: 1.52806e+07
+
+.\knn.exe ..\datasets\glove_data.txt ..\datasets\glove_queries.txt ..\datasets\glove_1_validation32k.txt 1 0 32 3 4 1 1 10 10 3
+Averge recall: 0.767679
+Total average: 1.03175
+
+--One bit Minhash, sketchDim 16, QueueSize 32 
+Averge recall: 0.54318
+Total average: 1.03876
+
+--Min hash sketchDim 32, QueueSize 32
+Averge recall: 0.0440476
+Total average: 1.46033
+
+--JL sketchdim 20, QueueSize 32
+Averge recall: 0.687424
+Total average: 1.0471
+
+-- Simhash sketchDim 8, QueueSize 32
+Averge recall: 0.955998
+Total average: 1.00286

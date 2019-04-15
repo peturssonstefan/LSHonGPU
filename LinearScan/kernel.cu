@@ -36,14 +36,14 @@ Point* linearScans(int implementation, int k, int d, int N_query, int N_data, fl
 		res = runMemOptimizedLinearScan(k, d, N_query, N_data, data, queries, distanceFunc);
 		break;
 	case 3:
-		res = runSimHashLinearScan(k, d, sketchDim, N_query, N_data, data, queries);
+		res = simHash::runSimHashLinearScan(k, d, sketchDim, N_query, N_data, data, queries);
 		break;
 	case 4:
 	case 5:
-		res = runMinHash(k, d, sketchDim, N_query, N_data, data, queries, implementation);
+		res = weightedMinHash::runMinHash(k, d, sketchDim, N_query, N_data, data, queries, implementation);
 		break;
 	case 6:
-		res = runSimHashJLLinearScan(k, d, sketchDim, N_query, N_data, data, queries);
+		res = simHashJl::runSimHashJLLinearScan(k, d, sketchDim, N_query, N_data, data, queries);
 		break;
 	default:
 		printf("Invalid implementation selected. \n");
@@ -73,6 +73,9 @@ Point* LshPipeline(LaunchDTO<T> params, int keysImplementation, int bucketKeyBit
 	case 5:
 		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries));
 		break;
+	case 6: 
+		printf("Invalid implementation selected for LSH. \n");
+		break; 
 	default:
 		printf("Invalid implementation selected for LSH. \n");
 		//exit(-1);
@@ -96,6 +99,9 @@ Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query
 	case 5: 
 		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
 		break; 
+	case 6:
+		return LshPipeline(setupLaunchDTO<float>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		break;
 	default:
 		printf("Invalid implementation selected for LSH. \n");
 		//exit(-1);

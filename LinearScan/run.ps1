@@ -17,7 +17,7 @@ param(
 .\changeVariables -queueSize $queueSize
 
 if($compile){
-    nvcc -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp randomVectorGenerator.cpp cudaHelpers.cu simHash.cu simHashJL.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu
+    nvcc -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp randomVectorGenerator.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu
 }
 
 

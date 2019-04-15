@@ -20,9 +20,6 @@
     <CudaCompile Include="cudaHelpers.cu">
       <Filter>utils</Filter>
     </CudaCompile>
-    <CudaCompile Include="simHashJL.cu">
-      <Filter>simhash</Filter>
-    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="parsing">

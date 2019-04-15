@@ -180,32 +180,32 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 
 		Point currentPoint = createPoint(i, jaccardDistance);
 
-		if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
-			threadQueue[queuePosition++] = currentPoint;
-		}
-
-
-
-		if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
-			startSort(threadQueue, swapPoint, params);
-			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
-			//printQueue(threadQueue);
-			queuePosition = 0;
-		}
-
-		//for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
-		//	if (currentPoint.distance < threadQueue[j].distance) {
-		//		swapPoint = threadQueue[j];
-		//		threadQueue[j] = currentPoint;
-		//		currentPoint = swapPoint;
-		//	}
+		//if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+		//	threadQueue[queuePosition++] = currentPoint;
 		//}
 
-		////Verify that head of thread queue is not smaller than biggest k distance.
-		//if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+
+
+		//if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
 		//	startSort(threadQueue, swapPoint, params);
 		//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+		//	//printQueue(threadQueue);
+		//	queuePosition = 0;
 		//}
+
+		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+			if (currentPoint.distance < threadQueue[j].distance) {
+				swapPoint = threadQueue[j];
+				threadQueue[j] = currentPoint;
+				currentPoint = swapPoint;
+			}
+		}
+
+		//Verify that head of thread queue is not smaller than biggest k distance.
+		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+			startSort(threadQueue, swapPoint, params);
+			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+		}
 
 	}
 
