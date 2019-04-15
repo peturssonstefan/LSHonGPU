@@ -11,6 +11,12 @@ bool same(Point p1, Point p2) {
 }
 
 __inline__ __device__
+bool same(Point p1, float distance) {
+	return (abs(p1.distance - distance) < EPSILON);
+}
+
+
+__inline__ __device__
 Point min(Point p1, Point p2) {
 	if (same(p1, p2)) {
 		return p1;
@@ -54,4 +60,11 @@ PointWithIndex createPointWithIndex(int idx, Point p) {
 	pWI.distance = p.distance;
 
 	return pWI;
+}
+
+__inline__ __host__ __device__
+void printQueue(Point* queue) {
+	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		printf("T[%d] arr[%d] = (%d,%f) \n", threadIdx.x, i, queue[i].ID, queue[i].distance);
+	}
 }

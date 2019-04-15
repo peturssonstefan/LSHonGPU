@@ -40,7 +40,7 @@ Point* linearScans(int implementation, int k, int d, int N_query, int N_data, fl
 		break;
 	case 4:
 	case 5:
-		res = runWeightedMinHash(k, d, sketchDim, N_query, N_data, data, queries, implementation);
+		res = runMinHash(k, d, sketchDim, N_query, N_data, data, queries, implementation);
 		break;
 	case 6:
 		res = runSimHashJLLinearScan(k, d, sketchDim, N_query, N_data, data, queries);
@@ -54,6 +54,17 @@ Point* linearScans(int implementation, int k, int d, int N_query, int N_data, fl
 	return res; 
 }
 
+Point* LSH1(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
+	LaunchDTO<unsigned int> params = setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries);
+	LshLaunchDTO<unsigned short> lshParams = setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, N_data, N_query);
+	return runLsh(params, lshParams);
+}
+
+Point* LSH2(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
+	LaunchDTO<unsigned char> params = setupLaunchDTO<unsigned char>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries);
+	LshLaunchDTO<unsigned int> lshParams = setupLshLaunchDTO<unsigned int>(keysImplementation, bucketKeyBits, tables, N_data, N_query);
+	return runLsh(params, lshParams);
+}
 
 Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
 	Point* res;
@@ -61,9 +72,10 @@ Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query
 	switch (implementation)
 	{
 	case 3:
-		LaunchDTO<unsigned int> params = setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries);
-		LshLaunchDTO<unsigned short> lshParams = setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, N_data, N_query);
-		res = runLsh(params, lshParams);
+		res = LSH1(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables);
+		break;
+	case 4:
+		res = LSH2(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables);
 		break;
 	default:
 		printf("Invalid implementation selected for LSH. \n");

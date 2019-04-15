@@ -15,13 +15,6 @@
 #include "distanceFunctions.cuh"
 #include "cudaHelpers.cuh"
 
-__inline__ __host__ __device__
-void printQueue(Point* queue) {
-	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-		printf("T[%d] arr[%d] = (%d,%f) \n", threadIdx.x, i, queue[i].ID, queue[i].distance);
-	}
-}
-
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
 	
@@ -80,7 +73,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		//}
 
 //		With buffer 
-		if (currentPoint.distance < maxKDistance) {
+		if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
 			threadQueue[queuePosition++] = currentPoint;
 		}
 

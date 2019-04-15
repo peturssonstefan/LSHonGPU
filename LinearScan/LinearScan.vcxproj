@@ -88,7 +88,6 @@
     <CudaCompile Include="simHash.cu" />
     <CudaCompile Include="simHashJL.cu" />
     <CudaCompile Include="simpleLinearScan.cu" />
-    <CudaCompile Include="weightedMinHash.cu" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ThesisParser\ThesisParser.vcxproj">

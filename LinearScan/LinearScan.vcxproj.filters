@@ -17,9 +17,6 @@
     <CudaCompile Include="memOptimizedLinearScan.cu">
       <Filter>scanners</Filter>
     </CudaCompile>
-    <CudaCompile Include="weightedMinHash.cu">
-      <Filter>minhash</Filter>
-    </CudaCompile>
     <CudaCompile Include="cudaHelpers.cu">
       <Filter>utils</Filter>
     </CudaCompile>

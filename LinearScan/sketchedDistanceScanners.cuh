@@ -166,6 +166,7 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 	bool sketchTypeOneBit = sizeof(T) > 1; 
 	int similarityDivisor = sketchTypeOneBit ? sketchDim * SKETCH_COMP_SIZE : sketchDim; 
 	Point swapPoint;
+	int queuePosition = 0;
 
 
 	//#pragma unroll
@@ -179,23 +180,39 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 
 		Point currentPoint = createPoint(i, jaccardDistance);
 
-		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
-			if (currentPoint.distance < threadQueue[j].distance) {
-				swapPoint = threadQueue[j];
-				threadQueue[j] = currentPoint;
-				currentPoint = swapPoint;
-			}
+		if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+			threadQueue[queuePosition++] = currentPoint;
 		}
 
-		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+
+
+		if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
 			startSort(threadQueue, swapPoint, params);
 			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+			//printQueue(threadQueue);
+			queuePosition = 0;
 		}
+
+		//for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+		//	if (currentPoint.distance < threadQueue[j].distance) {
+		//		swapPoint = threadQueue[j];
+		//		threadQueue[j] = currentPoint;
+		//		currentPoint = swapPoint;
+		//	}
+		//}
+
+		////Verify that head of thread queue is not smaller than biggest k distance.
+		//if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+		//	startSort(threadQueue, swapPoint, params);
+		//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+		//}
 
 	}
 
 
+
+	if (warpId == 0 && lane == 0)
+		printQueue(threadQueue);
 	//Sort before candidateSetScan if we only do exact calculations on warp queue elements.
 
 	//Candidate set scan.

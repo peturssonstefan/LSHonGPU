@@ -112,6 +112,9 @@ float jaccardDistanceFunc(T* data, T* query, int sketchDim, int similarityDiviso
 	jaccardSimilarity /= similarityDivisor;
 
 	float jaccardDistance = 1 - jaccardSimilarity;
+	if (threadIdx.x == 0) {
+		printf("simDiv %d jaccard dist: %f \n", similarityDivisor, jaccardDistance);
+	}
 
 	return jaccardDistance;
 }

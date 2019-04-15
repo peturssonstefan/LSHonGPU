@@ -19,7 +19,6 @@
 #include "statisticsCpu.h"
 #include <map>
 #include "launchDTO.h"
-#include "weightedMinHash.cuh"
 #include "launchHelper.cuh"
 #include "randomVectorGenerator.h"
 #include "processingUtils.cuh"
