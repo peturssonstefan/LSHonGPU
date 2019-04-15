@@ -54,28 +54,24 @@ Point* linearScans(int implementation, int k, int d, int N_query, int N_data, fl
 	return res; 
 }
 
-Point* LSH1(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
-	LaunchDTO<unsigned int> params = setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries);
-	LshLaunchDTO<unsigned short> lshParams = setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, N_data, N_query);
+template<class T, class K>
+Point* executeLSH(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	return runLsh(params, lshParams);
 }
 
-Point* LSH2(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
-	LaunchDTO<unsigned char> params = setupLaunchDTO<unsigned char>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries);
-	LshLaunchDTO<unsigned int> lshParams = setupLshLaunchDTO<unsigned int>(keysImplementation, bucketKeyBits, tables, N_data, N_query);
-	return runLsh(params, lshParams);
-}
-
-Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
-	Point* res;
-
-	switch (implementation)
+template<class T>
+Point* LshPipeline(LaunchDTO<T> params, int keysImplementation, int bucketKeyBits, int tables) {
+	
+	switch (keysImplementation)
 	{
 	case 3:
-		res = LSH1(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables);
+		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries));
 		break;
 	case 4:
-		res = LSH2(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables);
+		return executeLSH(params, setupLshLaunchDTO<unsigned char>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries));
+		break;
+	case 5:
+		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries));
 		break;
 	default:
 		printf("Invalid implementation selected for LSH. \n");
@@ -83,7 +79,30 @@ Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query
 		break; //?
 	}
 
-	return res; 
+}
+
+
+
+Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
+
+	switch (implementation)
+	{
+	case 3:
+		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		break;
+	case 4:
+		return LshPipeline(setupLaunchDTO<unsigned char>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		break;
+	case 5: 
+		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		break; 
+	default:
+		printf("Invalid implementation selected for LSH. \n");
+		//exit(-1);
+		break; //?
+	}
+
+	return nullptr; 
 }
 
 int main(int argc, char **argv)

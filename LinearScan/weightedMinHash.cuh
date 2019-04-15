@@ -102,15 +102,15 @@ bool isGreen(int* m_indexMap, int* m_bounds, float* data, float r, int i, int d)
 
 
 template<class T, class K>__global__
-void sketchDataOneBit(LaunchDTO<T> launchDTO, float* data, int N_data, int sketchedDim, int* m_indexMap, int* m_bounds, int M, int* seeds, bool* randomBitMap, K* sketchedData) {
+void sketchDataOneBit(LaunchDTO<T> launchDTO, float* data, int N_data, int sketchedDim, int hashBits, int* m_indexMap, int* m_bounds, int M, int* seeds, bool* randomBitMap, K* sketchedData) {
 	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int totalThreads = blockDim.x * gridDim.x;
 
 	for (int i = threadId; i < N_data; i += totalThreads) {
 		for (int hashIdx = 0; hashIdx < sketchedDim; hashIdx++) {
 
-			for (int bitIndex = 0; bitIndex < SKETCH_COMP_SIZE; bitIndex++) {
-				int seed = seeds[hashIdx * SKETCH_COMP_SIZE + bitIndex];
+			for (int bitIndex = 0; bitIndex < hashBits; bitIndex++) {
+				int seed = seeds[hashIdx * hashBits + bitIndex];
 				curandState s;
 				curand_init(seed, 0, 10000, &s);
 				bool red = true;
@@ -161,12 +161,12 @@ void sketchDataOriginal(LaunchDTO<T> launchDTO, float* data, int N_data, int ske
 }
 
 template<class T, class K>
-void sketchData(LaunchDTO<T> launchDTO, int sketchedDim, K* sketchedData, K* sketchedQueries, int* dev_m_indexMap, int* dev_m_bounds, int m_indexMapSize, int* dev_seedArr, bool oneBit, bool* dev_randomBitMap, int numberOfBlocks, int numberOfThreads) {
+void sketchData(LaunchDTO<T> launchDTO, int sketchedDim, K* sketchedData, K* sketchedQueries, int* dev_m_indexMap, int* dev_m_bounds, int m_indexMapSize, int* dev_seedArr, bool oneBit, int hashBits, bool* dev_randomBitMap, int numberOfBlocks, int numberOfThreads) {
 	if (oneBit) {
-		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (launchDTO, launchDTO.queries, launchDTO.N_queries, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap, sketchedQueries);
+		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (launchDTO, launchDTO.queries, launchDTO.N_queries, sketchedDim, hashBits, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap, sketchedQueries);
 		waitForKernel();
 
-		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (launchDTO, launchDTO.data, launchDTO.N_data, sketchedDim, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap, sketchedData);
+		sketchDataOneBit << <numberOfBlocks, numberOfThreads >> > (launchDTO, launchDTO.data, launchDTO.N_data, sketchedDim, hashBits, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, dev_randomBitMap, sketchedData);
 		waitForKernel();
 	}
 	else {
@@ -384,7 +384,7 @@ inline Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_
 	printf("Starting sketch data \n");
 	before = clock();
 
-	sketchData(launchDTO, sketchedDim, launchDTO.sketchedData, launchDTO.sketchedQueries, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, runOneBitMinHash, dev_randomBitMap, numberOfBlocks, numberOfThreads);
+	sketchData(launchDTO, sketchedDim, launchDTO.sketchedData, launchDTO.sketchedQueries, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, runOneBitMinHash, SKETCH_COMP_SIZE ,dev_randomBitMap, numberOfBlocks, numberOfThreads);
 
 	//T* sketchedData = (T*)malloc(launchDTO.sketchedDataSize * sizeof(T)); 
 	//copyArrayToHost(sketchedData, launchDTO.sketchedData, launchDTO.sketchedDataSize); 
@@ -415,14 +415,14 @@ inline Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_
 }
 
 template<class T, class K>
-void weightedMinHashGeneric(LaunchDTO<T> params, K* data, K* queries, int sketchedDim, bool runOneBitMinHash) {
+void weightedMinHashGeneric(LaunchDTO<T> params, K* data, K* queries, int sketchedDim, int hashBits, bool runOneBitMinHash) {
 	int numberOfThreads = calculateThreadsLocal(params.N_queries);
 	int numberOfBlocks = calculateBlocksLocal(params.N_queries);
 	int charSize = 255;
 	clock_t before;
 	clock_t time_lapsed;
 
-	int* dev_seedArr = createSeedArr(runOneBitMinHash ? sketchedDim * SKETCH_COMP_SIZE : sketchedDim);
+	int* dev_seedArr = createSeedArr(runOneBitMinHash ? sketchedDim * hashBits : sketchedDim);
 
 	bool* dev_randomBitMap = generateRandomBoolVectors(charSize);
 
@@ -449,7 +449,7 @@ void weightedMinHashGeneric(LaunchDTO<T> params, K* data, K* queries, int sketch
 	printf("Starting sketch data \n");
 	before = clock();
 
-	sketchData(params, sketchedDim, data, queries, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, runOneBitMinHash, dev_randomBitMap, numberOfBlocks, numberOfThreads);
+	sketchData(params, sketchedDim, data, queries, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, runOneBitMinHash, hashBits, dev_randomBitMap, numberOfBlocks, numberOfThreads);
 }
 
 Point* runMinHash(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
