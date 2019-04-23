@@ -96,6 +96,7 @@
   <ItemGroup>
     <ClInclude Include="candidateSetScanner.cuh" />
     <ClInclude Include="constants.cuh" />
+    <ClInclude Include="crossPolyTope.cuh" />
     <ClInclude Include="cudaHelpers.cuh" />
     <ClInclude Include="distanceFunctions.cuh" />
     <ClInclude Include="gloveparser.cuh" />
