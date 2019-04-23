@@ -421,7 +421,7 @@ namespace weightedMinHash {
 	}
 
 	template<class T, class K>
-	void weightedMinHashGeneric(LaunchDTO<T> params, K* data, K* queries, int sketchedDim, int hashBits, bool runOneBitMinHash) {
+	void weightedMinHashGeneric(LaunchDTO<T> params, Result& res, K* data, K* queries, int sketchedDim, int hashBits, bool runOneBitMinHash) {
 		int numberOfThreads = calculateThreadsLocal(params.N_queries);
 		int numberOfBlocks = calculateBlocksLocal(params.N_queries);
 		int charSize = 255;
@@ -439,8 +439,10 @@ namespace weightedMinHash {
 		int* dev_m_IndexMapSizeArr = mallocArray(m_indexMapSizeArr, 1);
 
 		//Transform, Normalize, Maps
+		before = clock(); 
 		minHashPreprocessing(params, dev_m_bounds, dev_m_IndexMapSizeArr, numberOfBlocks, numberOfThreads);
-
+		time_lapsed = clock() - before; 
+		res.preprocessTime += res.calcTime(time_lapsed);
 		int m_indexMapSize = getIndexMapSize(m_indexMapSizeArr, dev_m_IndexMapSizeArr);
 		//	printf("Index map size: %d \n", m_indexMapSize);
 
@@ -453,7 +455,6 @@ namespace weightedMinHash {
 
 
 		printf("Starting sketch data \n");
-		before = clock();
 
 		sketchData(params, sketchedDim, data, queries, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, runOneBitMinHash, hashBits, dev_randomBitMap, numberOfBlocks, numberOfThreads);
 	}

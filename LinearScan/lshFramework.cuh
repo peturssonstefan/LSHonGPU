@@ -44,21 +44,21 @@ void runSketchSimHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int number
 }
 
 template<class T, class K>
-void runSketchMinHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
+void runSketchMinHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, Result& res, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
 
 	if (isHashKeys) {
 		bool oneBitMinHash = lshParams.keyImplementation != 4; 
-		weightedMinHash::weightedMinHashGeneric(params, lshParams.dataKeys, lshParams.queryKeys, lshParams.tables, lshParams.bucketKeyBits, oneBitMinHash);
+		weightedMinHash::weightedMinHashGeneric(params, res, lshParams.dataKeys, lshParams.queryKeys, lshParams.tables, lshParams.bucketKeyBits, oneBitMinHash);
 	}
 	else {
 		bool oneBitMinHash = params.implementation != 4;
-		weightedMinHash::weightedMinHashGeneric(params, params.sketchedData, params.sketchedQueries, params.sketchDim, SKETCH_COMP_SIZE, oneBitMinHash);
+		weightedMinHash::weightedMinHashGeneric(params, res, params.sketchedData, params.sketchedQueries, params.sketchDim, SKETCH_COMP_SIZE, oneBitMinHash);
 	}
 }
 
 
 template <class T, class K>
-void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, Result res, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
+void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, Result& res, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
 	int implementation = isHashKeys ? lshParams.keyImplementation : params.implementation;
 	switch (implementation) {
 	case 3:
@@ -67,11 +67,11 @@ void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, Result res, 
 		break; 
 	case 4: 
 		printf("Using Weighted Minhash to %s \n", isHashKeys ? "generate keys" : "to sketch");
-		runSketchMinHash(params, lshParams, numberOfBlocks, numberOfThreads, isHashKeys); 
+		runSketchMinHash(params, lshParams, res, numberOfBlocks, numberOfThreads, isHashKeys); 
 		break; 
 	case 5:
 		printf("Using 1 Bit Weighted Minhash to %s \n", isHashKeys ? "generate keys" : "to sketch");
-		runSketchMinHash(params, lshParams, numberOfBlocks, numberOfThreads, isHashKeys);
+		runSketchMinHash(params, lshParams, res, numberOfBlocks, numberOfThreads, isHashKeys);
 		break; 
 	case 6: 
 		printf("Using Johnson Lindenstrauss to sketch \n");
@@ -308,7 +308,7 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 
 	printf("Building key hashes \n");
 	time_t before = clock(); 
-	generateHashes(params, lshParams, numberOfBlocks, numberOfThreads, true);
+	generateHashes(params, lshParams, res, numberOfBlocks, numberOfThreads, true);
 
 	K* bucketKeysData = (K*)malloc(lshParams.tables * params.N_data * sizeof(K)); 
 	K* bucketKeysQueries = (K*)malloc(lshParams.tables * params.N_queries * sizeof(K));
@@ -385,7 +385,7 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 		printf("\n"); 
 	}*/
 	time_t time_lapsed = clock() - before; 
-	res.constructionTime = (time_lapsed * 1000 / CLOCKS_PER_SEC) - res.preprocessTime;
+	res.constructionTime = res.calcTime(time_lapsed) - res.preprocessTime; //Some hash functions include preprocessing of the data. 
 	printf("Time to preprocess: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	int duplicateResultSize = numberOfBlocks * numberOfThreads * THREAD_QUEUE_SIZE;
@@ -397,6 +397,7 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	scan << <numberOfBlocks, numberOfThreads>> > (params, lshParams, dev_hashKeys, dev_buckets, dev_resultsDuplicates);
 	waitForKernel(); 
 	time_lapsed = clock() - before;
+	res.scanTime = res.calcTime(time_lapsed); 
 	printf("Time to calculate distance on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	/*copyArrayToHost(resultsDuplicates, dev_resultsDuplicates, duplicateResultSize);
@@ -420,7 +421,7 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	printf("Time to remove duplicates: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	copyArrayToHost(results, dev_results, params.N_queries * params.k);
-	
+	res.copyResultPoints(results, params.N_queries, params.k); 
 	cleanup(params, lshParams); 
 	freeDeviceArray(dev_buckets);
 	freeDeviceArray(dev_hashKeys);
@@ -429,5 +430,5 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	free(hashKeys);
 
 	resetDevice(); 
-	return results;
+	return res;
 }

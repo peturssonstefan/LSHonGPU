@@ -108,7 +108,7 @@ Result LSH(int implementation, int keysImplementation, int k, int d, int N_query
 		break; //?
 	}
 
-	return nullptr; 
+	return; 
 }
 
 int main(int argc, char **argv)
@@ -149,9 +149,11 @@ int main(int argc, char **argv)
 	printf("Write res is set to %s \n", writeRes ? "True" : "False");
 	printf("Validation is set to %s \n", shouldRunValidation ? "True" : "False");
 	printf("Truth file is %s \n", filepath_truth);
+	printf("Implementation selected = %s\n", implementations[implementation - 1]);
 
-
-	printf("Implementation selected = %s\n", implementations[implementation-1]); 
+	//DTO's purely used for result writing. 
+	LaunchDTO<int> defaultDTO = setupLaunchDTO<int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries); 
+	LshLaunchDTO<int> defaultLSHDTO = setupLshLaunchDTO<int>(keysImplementation, bucketKeyBits, tables, N_data, N_query, runWithSketchedData); 
 	Result res; 
 
 	if (framework == 0) {
@@ -161,7 +163,7 @@ int main(int argc, char **argv)
 		res = LSH(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables, runWithSketchedData);
 	}
 
-	float* container = (float*)malloc(2 * sizeof(float)); 
+	float* container = (float*)malloc(2 * sizeof(float)); //Dummy to avoid LINK ERR on cuda to cpp files
 
 	if (shouldRunValidation) {
 		printf("Running Validation: \n");

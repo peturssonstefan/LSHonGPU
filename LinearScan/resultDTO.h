@@ -25,4 +25,8 @@ struct Result
 			results[i] = points[i];
 		}
 	}
+
+	time_t calcTime(time_t time) {
+		return (time * 1000 / CLOCKS_PER_SEC);
+	}
 };
