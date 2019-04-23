@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include "resultWriter.h"
 
@@ -31,4 +32,28 @@ void writeOnlyIDs(Point* results, int k, int n_query) {
 		}
 	}
 
+}
+
+void writePerformanceResults(Result result, LaunchDTO<int> launchDTO, LshLaunchDTO<int> lshLaunchDTO, char* resultFile){
+	std::ofstream fileStream;
+
+	fileStream.open(resultFile, std::ios_base::app);
+	
+	fileStream << launchDTO.implementation << ",";
+	fileStream << lshLaunchDTO.keyImplementation << ",";
+	fileStream << launchDTO.sketchDim << ",";
+	fileStream << launchDTO.k << ",";
+	fileStream << THREAD_QUEUE_SIZE << ",";
+	fileStream << lshLaunchDTO.bucketKeyBits << ",";
+	fileStream << lshLaunchDTO.tables << ",";
+	fileStream << WITH_TQ_OR_BUFFER << ",";
+	fileStream << result.preprocessTime << ",";
+	fileStream << result.constructionTime << ",";
+	fileStream << result.scanTime << ",";
+	fileStream << result.recall << ",";
+	fileStream << result.avgDistance;
+
+	fileStream << std::endl;
+
+	fileStream.close();
 }
