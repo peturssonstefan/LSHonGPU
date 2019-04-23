@@ -58,7 +58,7 @@ namespace simHash {
 
 
 
-	Point* runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
+	Result runSimHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
 
 		setDevice();
 		int numberOfThreads = calculateThreadsLocal(N_query);
@@ -71,7 +71,8 @@ namespace simHash {
 		int sketchedQuerySize = N_query * sketchedDim;
 		int resultSize = N_query * k;
 		float* randomVectors = generateRandomVectors(randomVectorsSize);
-
+		Result res;
+		res.setupResult(N_query, k);
 		//Setup random vector array.
 		float* dev_randomVectors = mallocArray(randomVectors, randomVectorsSize, true);
 
@@ -99,6 +100,7 @@ namespace simHash {
 
 		printf("Done sketching.\n");
 		clock_t time_lapsed = clock() - before;
+		res.constructionTime = (time_lapsed * 1000 / CLOCKS_PER_SEC);
 		printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 		//copyArrayToHost(sketchedData, dev_sketchedData, sketchedDataSize);
@@ -115,9 +117,9 @@ namespace simHash {
 
 		time_lapsed = clock() - before;
 		printf("Time to calculate distance on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-
+		res.scanTime = (time_lapsed * 1000 / CLOCKS_PER_SEC);
 		copyArrayToHost(results, dev_results, resultSize);
-
+		res.copyResultPoints(results, N_query, k); 
 
 		//Close
 		freeDeviceArray(dev_data);
@@ -127,10 +129,10 @@ namespace simHash {
 		freeDeviceArray(dev_results);
 		free(sketchedData);
 		free(sketchedQuery);
-
+		free(results); 
 		resetDevice();
 
-		return results;
+		return res;
 	}
 
 }

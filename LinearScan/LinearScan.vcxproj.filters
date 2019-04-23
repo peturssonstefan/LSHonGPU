@@ -120,6 +120,9 @@
       <Filter>lsh</Filter>
     </ClInclude>
     <ClInclude Include="crossPolyTope.cuh" />
+    <ClInclude Include="resultDTO.h">
+      <Filter>models</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <string>
 #include "point.h"
+#include "resultDTO.h"
 
 using namespace std;
 
@@ -114,7 +115,7 @@ void printData(vector<QueryResult> data){
     }
 }
 
-void calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
+float calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
     float totalRecall = 0;
     for(int queryNum = 0; queryNum < truths.size(); queryNum++){
         QueryResult result = results[queryNum];
@@ -148,9 +149,10 @@ void calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
     }
 
     cout << "Averge recall: " << totalRecall / truths.size() << endl;
+	return  totalRecall / truths.size();
 }
 
-void calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> results) {
+float calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> results) {
 	
 	float totalAverage = 0;
 	for (int queryNum = 0; queryNum < truths.size(); queryNum++) {
@@ -194,14 +196,15 @@ void calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> resu
 	}
 
 	cout << "Total average: " << totalAverage / truths.size() << endl;
-
+	return totalAverage / truths.size(); 
 }
 
 // Function for calling into the framework from KNN framework
-void runValidation(char* truths, Point* results, int N_queries, int k, int reportK){
+void runValidation(char* truths, float* container, Point* results, int N_queries, int k, int reportK){
     vector<QueryResult> truthsVal = readData(truths);
     vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
-
-    calculateRecall(truthsVal, resultsVal);
-	calculateDistanceRatio(truthsVal, resultsVal);
+    float recall = calculateRecall(truthsVal, resultsVal);
+	float avgDistance = calculateDistanceRatio(truthsVal, resultsVal);
+	container[0] = recall; 
+	container[1] = avgDistance; 
 }

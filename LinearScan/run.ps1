@@ -12,11 +12,12 @@ param(
     $bucketKeyBits = '16',
     $tables = 1,
     $keysImplementation = 3,
-    $withTQOrBuffer = 0,
+    $withTQorBuffer = 0,
+    $runWithSketchedData = 0,
     $resultFile = ""
 )
 
-.\changeVariables -queueSize $queueSize
+.\changeVariables -queueSize $queueSize -withTQorBuffer $withTQorBuffer
 
 if($compile){
     nvcc -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp randomVectorGenerator.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu
@@ -26,6 +27,6 @@ if($compile){
 $fileexe = ".\knn.exe"
 
 Write-Host "Running program" -ForegroundColor Green
-Write-Host "$($fileexe) ..\datasets\$($dataset)_data.txt ..\datasets\$($dataset)_queries.txt ..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt $($validate) $($writeResults) $($k) $($implementation) $($sketchDim) $($distanceFunc) $($framework) $($bucketKeyBits) $($tables) $($keysImplementation) $($withTQOrBuffer) $($resultFile)" -ForegroundColor Green
+Write-Host "$($fileexe) ..\datasets\$($dataset)_data.txt ..\datasets\$($dataset)_queries.txt ..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt $($validate) $($writeResults) $($k) $($implementation) $($sketchDim) $($distanceFunc) $($framework) $($bucketKeyBits) $($tables) $($keysImplementation) $($runWithSketchedData) $($resultFile)" -ForegroundColor Green
 
-& $fileexe "..\datasets\$($dataset)_data.txt" "..\datasets\$($dataset)_queries.txt" "..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withTQOrBuffer $resultFile
+& $fileexe "..\datasets\$($dataset)_data.txt" "..\datasets\$($dataset)_queries.txt" "..\datasets\$($dataset)_$($distanceFunc)_validation$($k)k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $runWithSketchedData $resultFile

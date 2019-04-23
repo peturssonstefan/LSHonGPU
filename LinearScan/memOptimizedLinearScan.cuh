@@ -9,8 +9,9 @@
 #include "cudaHelpers.cuh"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include "resultDTO.h"
 
-Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc);
+Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc);
 
 __inline__ __device__
 void processQuery(float* queryPoint, float* dataPoints, int nData, int dimensions, int k, Point* result, int func) {

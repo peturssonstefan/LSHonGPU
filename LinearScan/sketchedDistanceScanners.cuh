@@ -26,6 +26,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
+	int queuePosition = 0;
 
 //#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
@@ -39,24 +40,39 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 
 		Point currentPoint = createPoint(i, (float)hammingDistance); 
 
-		for (int j = candidateSetSize-1; j >= 0 ; j--) { // simple sorting.
-			if (currentPoint.distance < threadQueue[j].distance) {
-				swapPoint = threadQueue[j];
-				threadQueue[j] = currentPoint;
-				currentPoint = swapPoint;
+		if (WITH_TQ_OR_BUFFER) {
+			//run TQ
+			for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+				if (currentPoint.distance < threadQueue[j].distance) {
+					swapPoint = threadQueue[j];
+					threadQueue[j] = currentPoint;
+					currentPoint = swapPoint;
+				}
+			}
+
+			//Verify that head of thread queue is not smaller than biggest k distance.
+			if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
 			}
 		}
+		else {
+			//run buffer
+			if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+				threadQueue[queuePosition++] = currentPoint;
+			}
 
-		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
-			startSort(threadQueue, swapPoint, params);
-			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+			if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
+				//printQueue(threadQueue);
+				queuePosition = 0;
+			}
 		}
 	}
 
 	
 	//Sort before candidateSetScan if we only do exact calculations on warp queue elements.
-
 
 	//Candidate set scan.
 	candidateSetScan(originalData, originalQuery, dimensions, threadQueue, k, distFunc);
@@ -80,6 +96,7 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 	int lane = threadIdx.x % WARPSIZE;
 	Parameters params;
 	params.lane = lane;
+	int queuePosition = 0; 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * launchDTO.k;
 	int queryIdx = warpId * launchDTO.sketchDim;
@@ -104,18 +121,34 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 
 		Point currentPoint = createPoint(i, distance);
 
-		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
-			if (currentPoint.distance < threadQueue[j].distance) {
-				swapPoint = threadQueue[j];
-				threadQueue[j] = currentPoint;
-				currentPoint = swapPoint;
+		if (WITH_TQ_OR_BUFFER) {
+			//run TQ
+			for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+				if (currentPoint.distance < threadQueue[j].distance) {
+					swapPoint = threadQueue[j];
+					threadQueue[j] = currentPoint;
+					currentPoint = swapPoint;
+				}
+			}
+
+			//Verify that head of thread queue is not smaller than biggest k distance.
+			if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
 			}
 		}
+		else {
+			//run buffer
+			if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+				threadQueue[queuePosition++] = currentPoint;
+			}
 
-		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
-			startSort(threadQueue, swapPoint, params);
-			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+			if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
+				//printQueue(threadQueue);
+				queuePosition = 0;
+			}
 		}
 	}
 
@@ -180,39 +213,39 @@ void scanJaccardDistance(float* originalData, float* originalQuery, int dimensio
 
 		Point currentPoint = createPoint(i, jaccardDistance);
 
-		//if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
-		//	threadQueue[queuePosition++] = currentPoint;
-		//}
+		if (WITH_TQ_OR_BUFFER) {
+			//run TQ
+			for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+				if (currentPoint.distance < threadQueue[j].distance) {
+					swapPoint = threadQueue[j];
+					threadQueue[j] = currentPoint;
+					currentPoint = swapPoint;
+				}
+			}
 
-
-
-		//if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
-		//	startSort(threadQueue, swapPoint, params);
-		//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
-		//	//printQueue(threadQueue);
-		//	queuePosition = 0;
-		//}
-
-		for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
-			if (currentPoint.distance < threadQueue[j].distance) {
-				swapPoint = threadQueue[j];
-				threadQueue[j] = currentPoint;
-				currentPoint = swapPoint;
+			//Verify that head of thread queue is not smaller than biggest k distance.
+			if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
 			}
 		}
+		else {
+			//run buffer
+			if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+				threadQueue[queuePosition++] = currentPoint;
+			}
 
-		//Verify that head of thread queue is not smaller than biggest k distance.
-		if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
-			startSort(threadQueue, swapPoint, params);
-			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+			if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
+				//printQueue(threadQueue);
+				queuePosition = 0;
+			}
 		}
 
 	}
 
 
-
-	if (warpId == 0 && lane == 0)
-		printQueue(threadQueue);
 	//Sort before candidateSetScan if we only do exact calculations on warp queue elements.
 
 	//Candidate set scan.

@@ -72,7 +72,6 @@ namespace simHashJl {
 
 	__global__
 		void scan(LaunchDTO<float> launchDTO) {
-
 		int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 		int queryIndex = warpId * launchDTO.dimensions;
 		if (queryIndex < launchDTO.dimensions * launchDTO.N_queries) {
@@ -80,7 +79,7 @@ namespace simHashJl {
 		}
 	}
 
-	void cleanup(LaunchDTO<float> launchDTO, float* randomVectors, float* dev_randomVectors) {
+	void cleanup(LaunchDTO<float> launchDTO, float* randomVectors, float* dev_randomVectors, Point* resultPoints) {
 		freeDeviceArray(launchDTO.data);
 		freeDeviceArray(launchDTO.queries);
 		freeDeviceArray(launchDTO.sketchedData);
@@ -88,9 +87,10 @@ namespace simHashJl {
 		freeDeviceArray(dev_randomVectors);
 		freeDeviceArray(launchDTO.results);
 		free(randomVectors);
+		free(resultPoints); 
 	}
 
-	Point* runSimHashJLLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
+	Result runSimHashJLLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries) {
 
 		setDevice();
 		int numberOfThreads = calculateThreadsLocal(N_query);
@@ -101,25 +101,34 @@ namespace simHashJl {
 		waitForKernel();
 		float* randomVectors = generateRandomVectors(randomVectorSize, sketchedDim);
 		float* dev_randomVectors = mallocArray(randomVectors, randomVectorSize, true);
-
+		Result res;
+		res.setupResult(N_query, k);
+		time_t before = clock(); 
 		sketch << <numberOfBlocks, numberOfThreads >> > (launchDTO, launchDTO.data, dev_randomVectors, N_data, launchDTO.sketchedData);
 		waitForKernel();
 		sketch << <numberOfBlocks, numberOfThreads >> > (launchDTO, launchDTO.queries, dev_randomVectors, N_query, launchDTO.sketchedQueries);
 		waitForKernel();
+		time_t time_lapsed = clock() - before;
+		res.constructionTime = (time_lapsed * 1000 / CLOCKS_PER_SEC); 
 
 		float* sketchedData = (float*)malloc(launchDTO.sketchedDataSize * sizeof(float));
 		copyArrayToHost(sketchedData, launchDTO.sketchedData, launchDTO.sketchedDataSize);
 
-
+		before = clock();
 		scan << <numberOfBlocks, numberOfThreads >> > (launchDTO);
 		waitForKernel();
-		Point* results = (Point*)malloc(launchDTO.resultSize * sizeof(Point));
-		copyArrayToHost(results, launchDTO.results, launchDTO.resultSize);
+		time_lapsed = clock() - before;
+		res.scanTime = (time_lapsed * 1000 / CLOCKS_PER_SEC); 
+		printf("Time to calculate distance on the GPU: %d \n", res.scanTime);
 
-		cleanup(launchDTO, randomVectors, dev_randomVectors);
+		Point* resultPoints = (Point*)malloc(launchDTO.resultSize * sizeof(Point));
+		copyArrayToHost(resultPoints, launchDTO.results, launchDTO.resultSize);
+		res.copyResultPoints(resultPoints, N_query, k); 
+		cleanup(launchDTO, randomVectors, dev_randomVectors, resultPoints);
+
 		resetDevice();
 
-		return results;
+		return res;
 	}
 
 }

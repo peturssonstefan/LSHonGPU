@@ -14,6 +14,7 @@
 #include "processingUtils.cuh"
 #include "distanceFunctions.cuh"
 #include "cudaHelpers.cuh"
+#include "resultDTO.h"
 
 __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
@@ -57,36 +58,41 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		distance = runDistanceFunction(func, &dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
 
 		Point currentPoint = createPoint(i, distance);
-		//for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
-		//	if (currentPoint.distance < threadQueue[j].distance) {
-		//		swapPoint = threadQueue[j];
-		//		threadQueue[j] = currentPoint;
-		//		currentPoint = swapPoint;
-		//	}
-		//}
-		//
-		//
-		////Verify that head of thread queue is not smaller than biggest k distance.
-		//if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
-		//	startSort(threadQueue, swapPoint, params);
-		//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
-		//}
 
-//		With buffer 
-		if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
-			threadQueue[queuePosition++] = currentPoint;
+		if (WITH_TQ_OR_BUFFER) {
+			//run TQ
+			for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+				if (currentPoint.distance < threadQueue[j].distance) {
+					swapPoint = threadQueue[j];
+					threadQueue[j] = currentPoint;
+					currentPoint = swapPoint;
+				}
+			}
+
+
+			//Verify that head of thread queue is not smaller than biggest k distance.
+			if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
+			}
 		}
+		else {
+			//run buffer
+			if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+				threadQueue[queuePosition++] = currentPoint;
+			}
 
+
+
+			if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
+				startSort(threadQueue, swapPoint, params);
+				maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
+				//printQueue(threadQueue);
+				queuePosition = 0;
+			}
+		}
 		
-
-		if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK ) {
-			startSort(threadQueue, swapPoint, params);
-			maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance); 
-			//printQueue(threadQueue);
-			queuePosition = 0;
-		}
 	}
-
 	startSort(threadQueue, swapPoint, params);
 	
 	//Copy result from warp queues to result array in reverse order. 
@@ -112,13 +118,14 @@ void preprocess(float* queryPoints, float* dataPoints, int nQueries, int nData, 
 	transformData(dataPoints, queryPoints, nData, nQueries, dimensions, minValues);
 }
 
-Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc) {
+Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc) {
 	setDevice();
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
 	int resultSize = N_query * k;
 	Point *resultArray = (Point*)malloc(resultSize * sizeof(Point));
-	
+	Result res;
+	res.setupResult(N_query, k);
 	// queries
 	float* dev_query_points = mallocArray(queries, N_query * d, true);
 	// data
@@ -146,9 +153,9 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 
 	clock_t time_lapsed = clock() - before;
 	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
-	
+	res.scanTime = (time_lapsed * 1000 / CLOCKS_PER_SEC);
 	copyArrayToHost(resultArray, dev_result, resultSize);
-
+	res.copyResultPoints(resultArray, N_query, k); 
 	//for (int i = 0; i < N_data; i++) {
 	//	printf("%d ", i);
 	//	for (int j = 0; j < d; j++) {
@@ -164,5 +171,5 @@ Point* runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 
 	resetDevice();
 
-	return resultArray; 
+	return res; 
 }

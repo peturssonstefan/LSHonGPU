@@ -58,7 +58,7 @@ void runSketchMinHash(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int number
 
 
 template <class T, class K>
-void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
+void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, Result res, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
 	int implementation = isHashKeys ? lshParams.keyImplementation : params.implementation;
 	switch (implementation) {
 	case 3:
@@ -126,8 +126,6 @@ void distributePointsToBuckets(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, i
 template <class T, class K> __global__ 
 void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int* dev_buckets, Point* result) {
 
-	bool runWithSketchedData = true;
-
 	Point threadQueue[THREAD_QUEUE_SIZE];
 
 	int threadId = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -160,8 +158,6 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 	}
 
 	magnitudeQuery = sqrt(magnitudeQuery); 
-	//printf("magnitudeQuery: %f \n", magnitudeQuery); 
-	
 
 	for (int tableIdx = 0; tableIdx < lshParams.tables; tableIdx++) {
 		
@@ -175,42 +171,41 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 		for (int bucketIdx = bucketStart + lane; bucketIdx < bucketEnd; bucketIdx += WARPSIZE) {
 			int dataIdx = dev_buckets[bucketIdx];
 
-			//if(warpId == 0)
-			//	printf("TableIdx: %d, BucketIdx: %d, DataIdx: %d\n", tableIdx, bucketIdx, dataIdx); 
-
-			float distance = runWithSketchedData ? 
+			float distance = lshParams.runWithSketchedData ?
 				  runSketchedDistanceFunction(params.implementation, &params.sketchedData[dataIdx * params.sketchDim], &params.sketchedQueries[querySketchedIdx], params.sketchDim, similarityDivisor)
 				: runDistanceFunction(params.distanceFunc, &params.data[dataIdx * params.dimensions], &params.queries[queryIdx], params.dimensions, magnitudeQuery);
 			
-			//if (warpId == 0)
-			//	printf("Distance %f \n", distance);
-			
 			Point point = createPoint(dataIdx, distance);
 
-			for (int i = candidateSetSize - 1; i >= 0; i--) {
-				if (point.distance < threadQueue[i].distance) {
-					swapPoint = threadQueue[i];
-					threadQueue[i] = point;
-					point = swapPoint;
+			if (WITH_TQ_OR_BUFFER) {
+				//run TQ
+				for (int j = candidateSetSize - 1; j >= 0; j--) { // simple sorting.
+					if (point.distance < threadQueue[j].distance) {
+						swapPoint = threadQueue[j];
+						threadQueue[j] = point;
+						point = swapPoint;
+					}
+				}
+
+				//Verify that head of thread queue is not smaller than biggest k distance.
+				if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
+					startSort(threadQueue, swapPoint, sortParameters);
+					maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
 				}
 			}
+			else {
+				//run buffer
+				if (point.distance < maxKDistance || same(point, maxKDistance)) {
+					threadQueue[queuePosition++] = point;
+				}
 
-			if (__ballot_sync(FULL_MASK, threadQueue[0].distance < maxKDistance) && __activemask() == FULL_MASK) {
-				startSort(threadQueue, swapPoint, sortParameters);
-				maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
+				if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
+					startSort(threadQueue, swapPoint, sortParameters);
+					maxKDistance = broadCastMaxK(threadQueue[candidateSetSize].distance);
+					//printQueue(threadQueue);
+					queuePosition = 0;
+				}
 			}
-			//if (point.distance < maxKDistance || same(point, maxKDistance)) {
-			//	threadQueue[queuePosition++] = point;
-			//}
-
-
-
-			//if (__ballot_sync(FULL_MASK, queuePosition >= candidateSetSize) && __activemask() == FULL_MASK) {
-			//	startSort(threadQueue, swapPoint, sortParameters);
-			//	maxKDistance = broadCastMaxK(threadQueue[localMaxKDistanceIdx].distance);
-			//	//printQueue(threadQueue);
-			//	queuePosition = 0;
-			//}
 
 		}
 
@@ -221,10 +216,8 @@ void scan(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, int* dev_hashKeys, int
 		//}
 	}
 
-	//if(warpId == 0 && lane == 0)
-	//	printQueue(threadQueue);
 
-	if (runWithSketchedData) {
+	if (lshParams.runWithSketchedData) {
 		candidateSetScan(params.data, &params.queries[queryIdx], params.dimensions, threadQueue, params.k, params.distanceFunc);
 	}
 	
@@ -298,8 +291,9 @@ void cleanup(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 }
 
 template<class T, class K>
-Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
-
+Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
+	Result res;
+	res.setupResult(params.N_queries, params.k); 
 	int totalBucketCount = lshParams.tableSize * lshParams.tables;
 	int* hashKeys = (int*)malloc(totalBucketCount * sizeof(int));
 	for (int i = 0; i < totalBucketCount; i++) {
@@ -313,6 +307,7 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	int numberOfBlocks = calculateBlocksLocal(params.N_queries);
 
 	printf("Building key hashes \n");
+	time_t before = clock(); 
 	generateHashes(params, lshParams, numberOfBlocks, numberOfThreads, true);
 
 	K* bucketKeysData = (K*)malloc(lshParams.tables * params.N_data * sizeof(K)); 
@@ -333,13 +328,13 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 
 	copyArrayToHost(hashKeys, dev_hashKeys, totalBucketCount);
 
-	int bucketSum = 0;
-	for (int i = 0; i < totalBucketCount; i++) {
-		printf("[%d] = %d \n", i, hashKeys[i]);
-		bucketSum += hashKeys[i];
-	}
+	//int bucketSum = 0;
+	//for (int i = 0; i < totalBucketCount; i++) {
+	//	printf("[%d] = %d \n", i, hashKeys[i]);
+	//	bucketSum += hashKeys[i];
+	//}
 
-	printf("Buckets sum: %d\n", bucketSum);
+	//printf("Buckets sum: %d\n", bucketSum);
 
 
 	printf("Building bucket indexes \n");
@@ -374,7 +369,7 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 
 
 	//sketch data
-	generateHashes(params, lshParams, numberOfBlocks, numberOfThreads, false);
+	generateHashes(params, lshParams, res, numberOfBlocks, numberOfThreads, false);
 
 	/*printf("Malloc \n");
 	T* dataSketch = (T*)malloc(params.sketchedDataSize * sizeof(T));
@@ -389,14 +384,20 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 
 		printf("\n"); 
 	}*/
+	time_t time_lapsed = clock() - before; 
+	res.constructionTime = (time_lapsed * 1000 / CLOCKS_PER_SEC) - res.preprocessTime;
+	printf("Time to preprocess: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	int duplicateResultSize = numberOfBlocks * numberOfThreads * THREAD_QUEUE_SIZE;
 	Point* resultsDuplicates = (Point*)malloc(duplicateResultSize * sizeof(Point));
 	Point* dev_resultsDuplicates = mallocArray(resultsDuplicates, duplicateResultSize);
-
+	
 	printf("Running scan \n");
+	before = clock(); 
 	scan << <numberOfBlocks, numberOfThreads>> > (params, lshParams, dev_hashKeys, dev_buckets, dev_resultsDuplicates);
 	waitForKernel(); 
+	time_lapsed = clock() - before;
+	printf("Time to calculate distance on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	/*copyArrayToHost(resultsDuplicates, dev_resultsDuplicates, duplicateResultSize);
 
@@ -410,11 +411,13 @@ Point* runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 
 	Point* results = (Point*)malloc(params.N_queries * params.k * sizeof(Point));
 	Point* dev_results = mallocArray(results, params.N_queries * params.k);
-
+	before = clock(); 
 	int duplicateBlocks = ceil(params.N_queries / (float)numberOfThreads);
 	printf("Removing duplicates from result\n");
 	removeDuplicates << <duplicateBlocks, numberOfThreads >> > (params, dev_resultsDuplicates, dev_results);
 	waitForKernel();
+	time_lapsed = clock() - before;
+	printf("Time to remove duplicates: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 
 	copyArrayToHost(results, dev_results, params.N_queries * params.k);
 	

@@ -112,10 +112,6 @@ float jaccardDistanceFunc(T* data, T* query, int sketchDim, int similarityDiviso
 	jaccardSimilarity /= similarityDivisor;
 
 	float jaccardDistance = 1 - jaccardSimilarity;
-	if (threadIdx.x == 0) {
-		printf("simDiv %d jaccard dist: %f \n", similarityDivisor, jaccardDistance);
-	}
-
 	return jaccardDistance;
 }
 
@@ -153,7 +149,7 @@ float runSketchedDistanceFunction(int implementation, T* data, T* query, int ske
 	case 6:
 		return euclideanDistanceFunc(data, query, sketchDim);
 		break;
-		default:
-			break;
+	default:
+		break;
 	}
 }

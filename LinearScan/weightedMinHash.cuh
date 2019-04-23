@@ -19,6 +19,7 @@
 #include <map>
 #include "launchDTO.h"
 #include "launchHelper.cuh"
+#include "resultDTO.h"
 
 namespace weightedMinHash {
 
@@ -199,11 +200,6 @@ namespace weightedMinHash {
 
 	template<class T>
 	void minHashPreprocessing(LaunchDTO<T> launchDTO, int* dev_m_bounds, int* dev_m_IndexMapSizeArr, int numberOfBlocks, int numberOfThreads) {
-		clock_t before;
-		clock_t time_lapsed;
-
-		// Transform data
-		before = clock();
 
 		transformVectors << <1, numberOfThreads >> > (launchDTO, dev_m_bounds);
 		waitForKernel();
@@ -213,8 +209,7 @@ namespace weightedMinHash {
 
 		preprocess << <1, numberOfThreads >> > (launchDTO, dev_m_bounds, dev_m_IndexMapSizeArr);
 		waitForKernel();
-		time_lapsed = clock() - before;
-		printf("Time to preprocess: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+
 	}
 
 	template<class T>
@@ -242,12 +237,11 @@ namespace weightedMinHash {
 		std::random_device rd;  // obtain a random number from hardware
 		std::mt19937 eng(rd()); // seed the generator
 
-		std::uniform_int_distribution<int> distribution(0, 1); // Standard normal distribution.
+		std::uniform_int_distribution<int> distribution(0, 1); 
 
 		for (int i = 0; i < N; ++i)
 		{
 			vectors[i] = distribution(randomSeed ? eng : generator);
-			std::cout << vectors[i] << ",";
 		}
 		std::cout << std::endl;
 
@@ -315,7 +309,7 @@ namespace weightedMinHash {
 	}
 
 	template <class T>
-	Point* runScan(LaunchDTO<T> launchDTO, int numberOfBlocks, int numberOfThreads) {
+	Point* runScan(LaunchDTO<T> launchDTO, Result res, int numberOfBlocks, int numberOfThreads) {
 		clock_t before;
 		clock_t time_lapsed;
 
@@ -325,7 +319,8 @@ namespace weightedMinHash {
 		scan << <numberOfBlocks, numberOfThreads >> > (launchDTO.data, launchDTO.queries, launchDTO.dimensions, launchDTO.sketchedData, launchDTO.sketchedQueries, launchDTO.sketchDim, launchDTO.N_data, launchDTO.N_queries, launchDTO.k, launchDTO.implementation, launchDTO.results);
 		waitForKernel();
 		time_lapsed = clock() - before;
-		printf("Time for scanning: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+		res.scanTime = (time_lapsed * 1000 / CLOCKS_PER_SEC); 
+		printf("Time for scanning: %d \n", res.scanTime);
 
 		copyArrayToHost(results, launchDTO.results, launchDTO.resultSize);
 
@@ -347,9 +342,11 @@ namespace weightedMinHash {
 	}
 
 	template <class T>
-	inline Point* runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
+	Result runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
 		int numberOfThreads = calculateThreadsLocal(N_query);
 		int numberOfBlocks = calculateBlocksLocal(N_query);
+		Result res;
+		res.setupResult(N_query, k);
 		int charSize = 255;
 		clock_t before;
 		clock_t time_lapsed;
@@ -370,9 +367,14 @@ namespace weightedMinHash {
 
 		int* m_indexMapSizeArr = (int*)malloc(sizeof(int));
 		int* dev_m_IndexMapSizeArr = mallocArray(m_indexMapSizeArr, 1);
-
+		before = clock();
 		//Transform, Normalize, Maps
 		minHashPreprocessing(launchDTO, dev_m_bounds, dev_m_IndexMapSizeArr, numberOfBlocks, numberOfThreads);
+		time_lapsed = clock() - before;
+		res.preprocessTime = (time_lapsed * 1000 / CLOCKS_PER_SEC);
+		printf("Time to preprocess: %d \n", res.preprocessTime);
+
+		before = clock(); 
 
 		int m_indexMapSize = getIndexMapSize(m_indexMapSizeArr, dev_m_IndexMapSizeArr);
 		printf("Index map size: %d \n", m_indexMapSize);
@@ -386,7 +388,6 @@ namespace weightedMinHash {
 
 
 		printf("Starting sketch data \n");
-		before = clock();
 
 		sketchData(launchDTO, sketchedDim, launchDTO.sketchedData, launchDTO.sketchedQueries, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, runOneBitMinHash, SKETCH_COMP_SIZE, dev_randomBitMap, numberOfBlocks, numberOfThreads);
 
@@ -403,19 +404,20 @@ namespace weightedMinHash {
 		//}
 
 		time_lapsed = clock() - before;
-		printf("Time to hash on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+		res.constructionTime = (time_lapsed * 1000 / CLOCKS_PER_SEC); 
+		printf("Time to hash on the GPU: %d \n", res.constructionTime);
 
 		//runBucketStatistics(launchDTO, numberOfThreads); 
 
 		printf("Done sketching \nStarting scan \n");
-		Point* results = runScan(launchDTO, numberOfBlocks, numberOfThreads);
-
+		Point* results = runScan(launchDTO, res, numberOfBlocks, numberOfThreads);
+		res.copyResultPoints(results, N_query, k); 
 		//Close
 		cleanupMW(launchDTO, dev_m_bounds, m_bounds, dev_randomBitMap);
 
 		resetDevice();
-
-		return results;
+		free(results);
+		return res;
 	}
 
 	template<class T, class K>
@@ -456,7 +458,7 @@ namespace weightedMinHash {
 		sketchData(params, sketchedDim, data, queries, dev_m_indexMap, dev_m_bounds, m_indexMapSize, dev_seedArr, runOneBitMinHash, hashBits, dev_randomBitMap, numberOfBlocks, numberOfThreads);
 	}
 
-	Point* runMinHash(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
+	Result runMinHash(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
 
 		if (implementation != 4) {
 			return runWeightedMinHashLinearScan<unsigned int>(k, d, sketchedDim, N_query, N_data, data, queries, implementation);

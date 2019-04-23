@@ -8,7 +8,7 @@
 #include <time.h>
 #include <algorithm>
 #include "sortingFramework.cuh"
-
+#include "resultDTO.h"
 
 
 #define CUDA_CHECK_RETURN(value){ \
@@ -91,7 +91,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 }
 
 
-Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries) {
+Result runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries) {
 
 	CUDA_CHECK_RETURN(cudaSetDevice(0));
 	int threads = 1024;
@@ -104,7 +104,8 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 	// Set up thread queue array
 	int threadQueueSize = threads * blocks * k;
 	Point* threadQueueArray = (Point*)malloc(threadQueueSize * sizeof(Point));
-	
+	Result res;
+	res.setupResult(N_query, k);
 	
 	// Set up cuda device arrays
 
@@ -135,7 +136,8 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 	CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 
 	clock_t time_lapsed = clock() - before;
-	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
+	res.scanTime = (time_lapsed * 1000 / CLOCKS_PER_SEC); 
+	printf("Time calculate on the GPU: %d \n", res.scanTime);
 
 	CUDA_CHECK_RETURN(cudaMemcpy(resultArray, dev_result, resultSize * sizeof(Point), cudaMemcpyDeviceToHost));
 
@@ -149,5 +151,7 @@ Point* runOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data
 
 	CUDA_CHECK_RETURN(cudaDeviceReset());
 
-	return resultArray;
+	res.copyResultPoints(resultArray, N_query, k); 
+	
+	return res;
 }

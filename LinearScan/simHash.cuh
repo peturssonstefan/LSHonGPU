@@ -10,10 +10,11 @@
 #include "cudaHelpers.cuh"
 #include "randomVectorGenerator.h"
 #include <type_traits>
+#include "resultDTO.h"
 
 namespace simHash {
 
-	Point* runSimHashLinearScan(int k, int d, int bits, int N_query, int N_data, float* data, float* queries);
+	Result runSimHashLinearScan(int k, int d, int bits, int N_query, int N_data, float* data, float* queries);
 
 
 	template <typename T> __global__

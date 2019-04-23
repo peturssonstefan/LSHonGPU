@@ -24,8 +24,8 @@
 
 char* implementations[6] = { "OptimizedLinearScan", "MemOptimizedLinearScan", "SimHashLinearScan", "WeightedMinHash", "OneBit - WeightedMinHash", "SimHash Johnson Lindenstrauss"};
 
-Point* linearScans(int implementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc) {
-	Point* res;
+Result linearScans(int implementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc) {
+	Result res;
 
 	switch (implementation)
 	{
@@ -55,23 +55,23 @@ Point* linearScans(int implementation, int k, int d, int N_query, int N_data, fl
 }
 
 template<class T, class K>
-Point* executeLSH(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
+Result executeLSH(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	return runLsh(params, lshParams);
 }
 
 template<class T>
-Point* LshPipeline(LaunchDTO<T> params, int keysImplementation, int bucketKeyBits, int tables) {
+Result LshPipeline(LaunchDTO<T> params, int keysImplementation, int bucketKeyBits, int tables, bool runWithSketchedData) {
 	
 	switch (keysImplementation)
 	{
 	case 3:
-		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries));
+		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries, runWithSketchedData));
 		break;
 	case 4:
-		return executeLSH(params, setupLshLaunchDTO<unsigned char>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries));
+		return executeLSH(params, setupLshLaunchDTO<unsigned char>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries, runWithSketchedData));
 		break;
 	case 5:
-		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries));
+		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries, runWithSketchedData));
 		break;
 	case 6: 
 		printf("Invalid implementation selected for LSH. \n");
@@ -86,21 +86,21 @@ Point* LshPipeline(LaunchDTO<T> params, int keysImplementation, int bucketKeyBit
 
 
 
-Point* LSH(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables) {
+Result LSH(int implementation, int keysImplementation, int k, int d, int N_query, int N_data, float* data, float* queries, int sketchDim, int distanceFunc, int bucketKeyBits, int tables, bool runWithSketchedData) {
 
 	switch (implementation)
 	{
 	case 3:
-		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables, runWithSketchedData);
 		break;
 	case 4:
-		return LshPipeline(setupLaunchDTO<unsigned char>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		return LshPipeline(setupLaunchDTO<unsigned char>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables, runWithSketchedData);
 		break;
 	case 5: 
-		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables, runWithSketchedData);
 		break; 
 	case 6:
-		return LshPipeline(setupLaunchDTO<float>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables);
+		return LshPipeline(setupLaunchDTO<float>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables, runWithSketchedData);
 		break;
 	default:
 		printf("Invalid implementation selected for LSH. \n");
@@ -130,7 +130,8 @@ int main(int argc, char **argv)
 	int bucketKeyBits = atoi(argv[11]); 
 	int tables = atoi(argv[12]); 
 	int keysImplementation = atoi(argv[13]);
-	int withTQorBuffer = atoi(argv[14]); 
+	bool runWithSketchedData = (bool)atoi(argv[14]);
+	char* result_file_path = argv[15]; 
 	int N_data = 0;
 	int N_query = 0;
 	int d = 0;
@@ -151,30 +152,36 @@ int main(int argc, char **argv)
 
 
 	printf("Implementation selected = %s\n", implementations[implementation-1]); 
-	Point* res; 
+	Result res; 
 
 	if (framework == 0) {
 		res = linearScans(implementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc); 
 	}
 	else {
-		res = LSH(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables);
+		res = LSH(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables, runWithSketchedData);
 	}
+
+	float* container = (float*)malloc(2 * sizeof(float)); 
 
 	if (shouldRunValidation) {
 		printf("Running Validation: \n");
-		runValidation(filepath_truth, res, N_query, k, reportK); 
+		runValidation(filepath_truth, container, res.results, N_query, k, reportK);
 	}
+
+	res.recall = container[0]; 
+	res.avgDistance = container[1]; 
 
 	if (writeRes) {
 		printf("Writing results: \n");
-		writeResult(res, k, N_query, reportK);
+		writeResult(res.results, k, N_query, reportK);
 	}
 
+	printf("From result dto: \n Preprocess Time: %d \n Construction Time: %d \n Scan Time: %d \n Recall: %f \n AvgDistance: %f \n", res.preprocessTime, res.constructionTime, res.scanTime, res.recall, res.avgDistance); 
 	printf("Starting to free \n"); 
 	free(queries);
 	free(data);
 	printf("Success. Program exiting. \n");
-	free(res);	
+	free(res.results);	
 	return 0;
 
 }

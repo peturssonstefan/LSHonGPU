@@ -103,6 +103,7 @@
     <ClInclude Include="launchDTO.h" />
     <ClInclude Include="lshFramework.cuh" />
     <ClInclude Include="randomVectorGenerator.h" />
+    <ClInclude Include="resultDTO.h" />
     <ClInclude Include="simHashJL.cuh" />
     <ClInclude Include="sketchedDistanceScanners.cuh" />
     <ClInclude Include="launchHelper.cuh" />

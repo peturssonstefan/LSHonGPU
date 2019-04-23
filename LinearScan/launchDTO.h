@@ -34,4 +34,5 @@ struct LshLaunchDTO
 	int bucketKeyBits;
 	int tables;
 	int tableSize; 
+	bool runWithSketchedData; 
 };

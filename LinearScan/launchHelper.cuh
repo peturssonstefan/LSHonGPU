@@ -53,13 +53,14 @@ LaunchDTO<T> setupLaunchDTO(int implementation, int distanceFunc, int k, int d, 
 }
 
 template <class T>
-LshLaunchDTO<T> setupLshLaunchDTO(int keyImplementation, int bucketKeyBits, int tables, int N_data, int N_queries) {
+LshLaunchDTO<T> setupLshLaunchDTO(int keyImplementation, int bucketKeyBits, int tables, int N_data, int N_queries, bool runWithSketchedData) {
 	T* dataKeys; 
 	T* queryKeys;
 
 	LshLaunchDTO<T> lshLaunchDTO; 
 	lshLaunchDTO.bucketKeyBits = bucketKeyBits;
 	lshLaunchDTO.tables = tables;
+	lshLaunchDTO.runWithSketchedData = runWithSketchedData; 
 	lshLaunchDTO.keyImplementation = keyImplementation;
 	lshLaunchDTO.tableSize = 1 << bucketKeyBits;
 	lshLaunchDTO.dataKeys = mallocArray(dataKeys, tables * N_data);
