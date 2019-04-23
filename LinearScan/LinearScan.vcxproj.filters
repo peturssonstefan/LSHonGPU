@@ -119,6 +119,7 @@
     <ClInclude Include="lshFramework.cuh">
       <Filter>lsh</Filter>
     </ClInclude>
+    <ClInclude Include="crossPolyTope.cuh" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="resultWriter.cpp" />

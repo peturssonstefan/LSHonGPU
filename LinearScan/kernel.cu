@@ -130,6 +130,7 @@ int main(int argc, char **argv)
 	int bucketKeyBits = atoi(argv[11]); 
 	int tables = atoi(argv[12]); 
 	int keysImplementation = atoi(argv[13]);
+	int withTQorBuffer = atoi(argv[14]); 
 	int N_data = 0;
 	int N_query = 0;
 	int d = 0;
