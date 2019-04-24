@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 		res = LSH(implementation, keysImplementation, k, d, N_query, N_data, data, queries, sketchDim, distanceFunc, bucketKeyBits, tables, runWithSketchedData);
 	}
 
-	float* container = (float*)malloc(2 * sizeof(float)); //Dummy to avoid LINK ERR on cuda to cpp files
+	float* container = (float*)malloc(2 * sizeof(float)); //Dummy to avoid LINK ERR on .cu to .cpp files
 
 	if (shouldRunValidation) {
 		printf("Running Validation: \n");
@@ -178,8 +178,7 @@ int main(int argc, char **argv)
 		writeResult(res.results, k, N_query, reportK);
 	}
 
-	printf("From result dto: \n Preprocess Time: %d \n Construction Time: %d \n Scan Time: %d \n Recall: %f \n AvgDistance: %f \n", res.preprocessTime, res.constructionTime, res.scanTime, res.recall, res.avgDistance); 
-	printf("Starting to free \n"); 
+	writePerformanceResults(res, defaultDTO, defaultLSHDTO, result_file_path); 
 	free(queries);
 	free(data);
 	printf("Success. Program exiting. \n");
