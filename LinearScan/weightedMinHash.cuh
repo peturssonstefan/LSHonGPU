@@ -234,14 +234,14 @@ namespace weightedMinHash {
 		static bool* vectors = (bool*)malloc(N * sizeof(bool));
 		std::default_random_engine generator;
 		// different seeds
-		std::random_device rd;  // obtain a random number from hardware
-		std::mt19937 eng(rd()); // seed the generator
+		//std::random_device rd;  // obtain a random number from hardware
+		//std::mt19937 eng(rd()); // seed the generator
 
 		std::uniform_int_distribution<int> distribution(0, 1); 
 
 		for (int i = 0; i < N; ++i)
 		{
-			vectors[i] = distribution(randomSeed ? eng : generator);
+			vectors[i] = distribution(generator);
 		}
 		std::cout << std::endl;
 
