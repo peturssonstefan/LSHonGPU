@@ -4,6 +4,7 @@
 #include "sortParameters.h"
 #include<math.h>
 #include "launchDTO.h"
+#include "cudaHelpers.cuh"
 
 __inline__ __host__ __device__ 
 int calculateThreadsLocal(int querypoints) {
