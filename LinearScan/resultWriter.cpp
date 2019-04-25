@@ -35,6 +35,7 @@ void writeOnlyIDs(Point* results, int k, int n_query) {
 }
 
 void writePerformanceResults(Result result, LaunchDTO<int> launchDTO, LshLaunchDTO<int> lshLaunchDTO, char* resultFile){
+	std::cout << "Writing results to file " << resultFile << std::endl; 
 	std::ofstream fileStream;
 
 	fileStream.open(resultFile, std::ios_base::app);

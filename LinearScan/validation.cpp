@@ -273,6 +273,8 @@ void runValidationFromLargeFile(char* truths, float* container, Point* results, 
 	vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
 	float recall = calculateRecallGivenK(truthsVal, resultsVal, k); 
 	float distance = calculateAvgDistanceGivenK(truthsVal, resultsVal, k); 
+	cout << "r: " << recall << endl;
+	cout << "d: " << distance << endl;
 	container[0] = recall; 
 	container[1] = distance; 
 }
