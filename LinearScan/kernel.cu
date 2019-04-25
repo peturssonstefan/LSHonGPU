@@ -167,7 +167,8 @@ int main(int argc, char **argv)
 
 	if (shouldRunValidation) {
 		printf("Running Validation: \n");
-		runValidation(filepath_truth, container, res.results, N_query, k, reportK);
+		runValidationFromLargeFile(filepath_truth, container, res.results, N_query, k, reportK);
+		//runValidation(filepath_truth, container, res.results, N_query, k, reportK);
 	}
 
 	res.recall = container[0]; 
@@ -183,6 +184,8 @@ int main(int argc, char **argv)
 	free(data);
 	printf("Success. Program exiting. \n");
 	free(res.results);	
+
+	
 	return 0;
 
 }
