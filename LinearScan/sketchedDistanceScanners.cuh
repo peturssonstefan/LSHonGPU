@@ -14,6 +14,7 @@
 __inline__ __device__
 void scanHammingDistance(float* originalData, float* originalQuery, int dimensions, unsigned int* data, unsigned int* queries, int sketchDim, int nData, int N_query, int k, int distFunc, int implementation, Point* result)
 {
+	
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE; 
 	Parameters params; 
@@ -27,6 +28,9 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
 	int queuePosition = 0;
+
+	if(lane == 0 && warpId == 0)
+		printf("Debug: \n Dim: %d, SketchDim: %d, nData: %d, nQueries: %d, k: %d distFunc %d, imple: %d candidateSetSize: %d", dimensions, sketchDim, nData, N_query, k, distFunc, implementation, candidateSetSize); 
 
 //#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
