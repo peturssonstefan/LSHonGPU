@@ -101,6 +101,8 @@ vector<QueryResult> readData(char* filename, bool isTruthFile){
         results[queryNum] = result;
     }
     
+	file.close(); 
+
     return results;
 }
 
