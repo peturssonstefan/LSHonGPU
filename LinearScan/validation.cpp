@@ -208,3 +208,73 @@ void runValidation(char* truths, float* container, Point* results, int N_queries
 	container[0] = recall; 
 	container[1] = avgDistance; 
 }
+
+bool compareDistance(PointValidation p1, PointValidation p2) {
+	return p1.Distance < p2.Distance; 
+}
+
+float calculateAvgDistanceGivenK(vector<QueryResult> truths, vector<QueryResult> points, int k) {
+	float totalAvgDistance = 0; 
+	for (int i = 0; i < truths.size(); i++) {
+		QueryResult truth = truths[i];
+		QueryResult point = points[i];
+		float truthsDistance = 0;
+		float resultsDistance = 0;
+
+		vector<PointValidation> truthNNvector(truth.NN.size());
+		vector<PointValidation> pointNNvector(point.NN.size());
+		copy(truth.NN.begin(), truth.NN.end(), truthNNvector.begin());
+		copy(point.NN.begin(), point.NN.end(), pointNNvector.begin());
+		sort(truthNNvector.begin(), truthNNvector.end(), compareDistance);
+
+		for (int i = 0; i < k; i++) {
+			truthsDistance += truthNNvector[i].Distance; 
+		}
+		for (int i = 0; i < pointNNvector.size(); i++) {
+			resultsDistance += pointNNvector[i].Distance;
+		}
+
+		float distanceRatio = resultsDistance / truthsDistance;
+		totalAvgDistance += distanceRatio; 
+	}
+
+	return totalAvgDistance / truths.size();
+}
+
+float calculateRecallGivenK(vector<QueryResult> truths, vector<QueryResult> points, int k) {
+
+	float totalRecall = 0;
+	for (int i = 0; i < truths.size(); i++) {
+		QueryResult truth = truths[i];
+		QueryResult point = points[i];
+
+		vector<PointValidation> truthNNvector(truth.NN.size()); 
+		vector<PointValidation> pointNNvector(point.NN.size()); 
+		copy(truth.NN.begin(), truth.NN.end(), truthNNvector.begin());
+		copy(point.NN.begin(), point.NN.end(), pointNNvector.begin());
+
+		sort(truthNNvector.begin(), truthNNvector.end(), compareDistance); 
+
+		for (int i = 0; i < pointNNvector.size(); i++) {
+			PointValidation p = pointNNvector[i]; 
+			for (int i = 0; i < k; i++) {
+				PointValidation tp = truthNNvector[i]; 
+				if (tp.ID == p.ID) totalRecall++;
+			}
+		}
+	}
+
+	return totalRecall / (points.size() * k); 
+}
+
+
+void runValidationFromLargeFile(char* truths, float* container, Point* results, int N_queries, int k, int reportK) {
+	vector<QueryResult> truthsVal = readData(truths);
+	vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
+	float recall = calculateRecallGivenK(truthsVal, resultsVal, k); 
+	float distance = calculateAvgDistanceGivenK(truthsVal, resultsVal, k); 
+	cout << "r: " << recall << endl;
+	cout << "d: " << distance << endl;
+	container[0] = recall; 
+	container[1] = distance; 
+}

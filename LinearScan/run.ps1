@@ -14,7 +14,7 @@ param(
     $keysImplementation = 3,
     $withTQorBuffer = 0,
     $runWithSketchedData = 0,
-    $resultFile = ""
+    $resultFile = "..\results.txt"
 )
 
 .\changeVariables -queueSize $queueSize -withTQorBuffer $withTQorBuffer

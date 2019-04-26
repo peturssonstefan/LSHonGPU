@@ -18,7 +18,7 @@ run_program(){
     keysImplementation=$8
     withSketchedData=$9
 
-    echo "Run with ../datasets/${dataset}_data.txt ../datasets/${dataset}_queries.txt ../datasets/${dataset}_${distanceFunc}_validation${k}k.txt $implementation $k $distanceFunc $sketchDim $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile"
+    echo "Run with ../datasets/${dataset}_data.txt ../datasets/${dataset}_queries.txt ../datasets/${dataset}_${distanceFunc}_validation1024k.txt $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $runWithSketchedData $resultFile"
     #./knn "../datasets/${dataset}_data.txt" "../datasets/${dataset}_queries.txt" "../datasets/${dataset}_${distanceFunc}_validation${k}k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile
     return
 }

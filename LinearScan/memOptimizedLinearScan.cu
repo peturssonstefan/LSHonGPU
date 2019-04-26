@@ -23,7 +23,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * k;
 	int queryId = warpId * dimensions;
-	if (queryId > nQueries * dimensions) return; 
+	if (warpId >= nQueries) return;
 	int lane = threadIdx.x % WARPSIZE;
 	float maxKDistance = (float)INT_MAX; 
 	int warpQueueSize = k / WARPSIZE; 
