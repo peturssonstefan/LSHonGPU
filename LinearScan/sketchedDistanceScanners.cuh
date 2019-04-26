@@ -83,6 +83,8 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	int kIdx = (WARPSIZE - lane) - 1;
 	int warpQueueIdx = THREAD_QUEUE_SIZE - 1;
 
+
+
 	for (int i = kIdx; i < k; i += WARPSIZE)
 	{
 		result[resultIdx + i] = threadQueue[warpQueueIdx--];

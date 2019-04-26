@@ -51,7 +51,7 @@ namespace simHash {
 
 		int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 		int queryIndex = warpId * dimensions;
-		if (queryIndex < dimensions * N_query) {
+		if (warpId < N_query) {
 			scanHammingDistance(originalData, &originalQueries[queryIndex], dimensions, data, queries, sketchDim, N_data, N_query, k, DISTANCE_FUNCTION, IMPLEMENTATION, result);
 		}
 	}
