@@ -59,6 +59,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 		else {
 			//run buffer
 			if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+				if (queuePosition >= THREAD_QUEUE_SIZE) printf("Value larger than queue pos \n"); 
 				threadQueue[queuePosition++] = currentPoint;
 			}
 
