@@ -38,11 +38,13 @@ void GloveRunner::run(int argc, char** args){
     std::mt19937 eng(rd()); // seed the generator
     std::uniform_int_distribution<> distr(0, settings.N); // define the range
 
+    std::default_random_engine generator;
+
     for(int i = 0; i < settings.NumQueryPoints; i++){
-        int randomI = distr(eng);
+        int randomI = distr(generator);
         // Avoid index out of bounds after query points are taken from data
         while (randomI >= data.size()){
-            randomI = distr(eng);
+            randomI = distr(generator);
         }
 
         queryPoints[i] = data[randomI];
