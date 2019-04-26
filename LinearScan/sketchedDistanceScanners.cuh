@@ -121,7 +121,6 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 		
 		distance = runSketchedDistanceFunction(launchDTO.implementation, &launchDTO.sketchedData[launchDTO.sketchDim*i], &launchDTO.sketchedQueries[queryIdx], launchDTO.sketchDim); 
 
-
 		Point currentPoint = createPoint(i, distance);
 
 		if (WITH_TQ_OR_BUFFER) {
