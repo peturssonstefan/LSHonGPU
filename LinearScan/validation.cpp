@@ -17,7 +17,7 @@ class PointValidation
 
         //Overload < operator
         bool operator<(const PointValidation& other) const {
-			return this->ID < other.ID;
+            return this->ID < other.ID;
         }
 
         void setFieldsFromPoint(Point p){
@@ -32,10 +32,11 @@ class QueryResult{
     public:
         string queryId;
         set<PointValidation> NN;
+        vector<PointValidation> truthVector;
 };
 
 
-vector<QueryResult> readData(Point* data, int N_queries ,int k, int reportK){
+vector<QueryResult> readData(Point* data, int N_queries ,int k, int reportK, bool isTruthFile){
     vector<QueryResult> parsedData(N_queries); 
     for(int queryID = 0; queryID < N_queries; queryID++){
         QueryResult qRes;
@@ -45,7 +46,11 @@ vector<QueryResult> readData(Point* data, int N_queries ,int k, int reportK){
 
             pVal.setFieldsFromPoint(data[queryID * k + i]);
 
-            qRes.NN.insert(pVal);
+            if(isTruthFile){
+                qRes.truthVector.push_back(pVal);
+            } else {
+                qRes.NN.insert(pVal);
+            }
         }
 
         parsedData[queryID] = qRes;
@@ -54,7 +59,7 @@ vector<QueryResult> readData(Point* data, int N_queries ,int k, int reportK){
     return parsedData;
 }
 
-vector<QueryResult> readData(char* filename){
+vector<QueryResult> readData(char* filename, bool isTruthFile){
     ifstream file;
     file.open(filename);
 
@@ -69,7 +74,10 @@ vector<QueryResult> readData(char* filename){
     string queryId;
     for(int queryNum = 0; queryNum < n; queryNum++){
         file >> queryId;
-        set<PointValidation> pointValidationSet;        
+
+        QueryResult result;
+        result.queryId = queryId;
+
         for(int resultNum = 0; resultNum < k; resultNum++){
             PointValidation p;
 
@@ -82,12 +90,13 @@ vector<QueryResult> readData(char* filename){
             p.ID = pointValidationId;
             p.Distance = pointValidationDistance;
 
-            pointValidationSet.insert(p);
-        }
+            if(isTruthFile){
+                result.truthVector.push_back(p);
+            } else {
+                result.NN.insert(p);
+            }
 
-        QueryResult result;
-        result.queryId = queryId;
-        result.NN = pointValidationSet;
+        }
 
         results[queryNum] = result;
     }
@@ -115,36 +124,30 @@ void printData(vector<QueryResult> data){
     }
 }
 
-float calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
+float calculateRecall(vector<QueryResult> truths, vector<QueryResult> results, int k){
     float totalRecall = 0;
     for(int queryNum = 0; queryNum < truths.size(); queryNum++){
         QueryResult result = results[queryNum];
         QueryResult truth = truths[queryNum];
-
-        // Creating a iterator pointValidationing to start of set
-        set<PointValidation>::iterator it = truth.NN.begin();
 
         set<PointValidation>::iterator findIt;
 
         float recalledElements = 0;
 
         // Iterate till the end of set
-        while (it != truth.NN.end())
+        for(int i = 0; i < truth.truthVector.size() && i < k; i++)
         {   
-            PointValidation p = (*it);
+            PointValidation p = truth.truthVector[i];
             
             findIt = result.NN.find(p);
 
             if(findIt != result.NN.end()){
                 recalledElements++;
             }
-
-            //Increment the iterator
-            it++;
         }
 
-        float recall = recalledElements/truth.NN.size();
-        //cout << "recall for " << truth.queryId << " = " << recall << endl;
+        float recall = recalledElements/k;
+        
         totalRecall += recall;
     }
 
@@ -152,7 +155,7 @@ float calculateRecall(vector<QueryResult> truths, vector<QueryResult> results){
 	return  totalRecall / truths.size();
 }
 
-float calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> results) {
+float calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> results, int k) {
 	
 	float totalAverage = 0;
 	for (int queryNum = 0; queryNum < truths.size(); queryNum++) {
@@ -162,19 +165,12 @@ float calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> res
 		float truthsDistance = 0;
 		float resultsDistance = 0;
 
-		// Creating a iterator pointValidationing to start of set
-		set<PointValidation>::iterator it = truth.NN.begin();
+        // calculate truths distance
+        for(int i = 0; i < truth.truthVector.size() && i < k; i++){
+            PointValidation p = truth.truthVector[i];
 
-		// Iterate till the end of set
-		while (it != truth.NN.end())
-		{
-			PointValidation p = (*it);
-
-			truthsDistance += p.Distance;
-
-			//Increment the iterator
-			it++;
-		}
+            truthsDistance += p.Distance;
+        }
 
 		set<PointValidation>::iterator resIt = result.NN.begin();
 
@@ -201,10 +197,10 @@ float calculateDistanceRatio(vector<QueryResult> truths, vector<QueryResult> res
 
 // Function for calling into the framework from KNN framework
 void runValidation(char* truths, float* container, Point* results, int N_queries, int k, int reportK){
-    vector<QueryResult> truthsVal = readData(truths);
-    vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
-    float recall = calculateRecall(truthsVal, resultsVal);
-	float avgDistance = calculateDistanceRatio(truthsVal, resultsVal);
+    vector<QueryResult> truthsVal = readData(truths, true);
+    vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK, false);
+    float recall = calculateRecall(truthsVal, resultsVal,reportK);
+	float avgDistance = calculateDistanceRatio(truthsVal, resultsVal, reportK);
 	container[0] = recall; 
 	container[1] = avgDistance; 
 }
@@ -269,8 +265,8 @@ float calculateRecallGivenK(vector<QueryResult> truths, vector<QueryResult> poin
 
 
 void runValidationFromLargeFile(char* truths, float* container, Point* results, int N_queries, int k, int reportK) {
-	vector<QueryResult> truthsVal = readData(truths);
-	vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK);
+	vector<QueryResult> truthsVal = readData(truths, true);
+	vector<QueryResult> resultsVal = readData(results, N_queries, k, reportK, false);
 	float recall = calculateRecallGivenK(truthsVal, resultsVal, k); 
 	float distance = calculateAvgDistanceGivenK(truthsVal, resultsVal, k); 
 	cout << "r: " << recall << endl;
