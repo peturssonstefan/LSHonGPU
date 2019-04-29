@@ -19,13 +19,13 @@ run_program(){
     withSketchedData=$9
 
     echo "Run with ../datasets/${dataset}_data.txt ../datasets/${dataset}_queries.txt ../datasets/${dataset}_${distanceFunc}_validation1024k.txt $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $runWithSketchedData $resultFile"
-    #./knn "../datasets/${dataset}_data.txt" "../datasets/${dataset}_queries.txt" "../datasets/${dataset}_${distanceFunc}_validation${k}k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile
+    ./knn "../datasets/${dataset}_data.txt" "../datasets/${dataset}_queries.txt" "../datasets/${dataset}_${distanceFunc}_validation${k}k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile
     return
 }
 
 compile_program(){
     echo "Compiling program"
-    #nvcc -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp randomVectorGenerator.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu
+    nvcc -std=c++11 -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp randomVectorGenerator.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu
 }
 
 change_constants(){
@@ -39,7 +39,7 @@ change_constants(){
 
 run_memOptimized(){
     queueSize=$1
-    maxK=$(($queueSize*32))
+    maxK=$((($queueSize*32)/2))
     for ((k=32; k<=1024; k*=2))
     do
         if [ $k -gt $maxK ]
@@ -139,7 +139,7 @@ run_lsh(){
     done
 }
 
-for ((queueSize=4; queueSize <= 128; queueSize*=2))
+for ((queueSize=16; queueSize <= 64; queueSize*=2))
 do
     #Change queueSize 
     #Change to buffer
@@ -148,6 +148,6 @@ do
     compile_program
     #Run
     run_memOptimized $queueSize
-    run_sketches $queueSize
-    run_lsh $queueSize
+    #run_sketches $queueSize
+    #run_lsh $queueSize
 done

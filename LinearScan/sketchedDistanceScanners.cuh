@@ -29,9 +29,6 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	Point swapPoint;
 	int queuePosition = 0;
 
-	if(lane == 0 && warpId == 0)
-		printf("Debug: \n Dim: %d, SketchDim: %d, nData: %d, nQueries: %d, k: %d distFunc %d, imple: %d candidateSetSize: %d", dimensions, sketchDim, nData, N_query, k, distFunc, implementation, candidateSetSize); 
-
 //#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = createPoint(-1, maxKDistance);
@@ -91,8 +88,7 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 
 	for (int i = kIdx; i < k; i += WARPSIZE)
 	{
-		if(resultIdx + i < N_query * k)
-			result[resultIdx + i] = threadQueue[warpQueueIdx--];
+		result[resultIdx + i] = threadQueue[warpQueueIdx--];
 	}
 }
 
@@ -124,7 +120,6 @@ void scanHammingDistanceJL(LaunchDTO<float> launchDTO)
 		float distance = 0;
 		
 		distance = runSketchedDistanceFunction(launchDTO.implementation, &launchDTO.sketchedData[launchDTO.sketchDim*i], &launchDTO.sketchedQueries[queryIdx], launchDTO.sketchDim); 
-
 
 		Point currentPoint = createPoint(i, distance);
 

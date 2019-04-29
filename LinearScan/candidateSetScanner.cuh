@@ -23,7 +23,9 @@ void candidateSetScan(float* data, float* query, int dimensions, Point* candidat
 		int index = candidates[i].ID * dimensions; 
 		float distance = 0.0;
 
-		distance = runDistanceFunction(distFunc, &data[index], query, dimensions, magnitude_query);
+		if (index >= 0) {
+			distance = runDistanceFunction(distFunc, &data[index], query, dimensions, magnitude_query);
+		}
 
 		candidates[i].distance = candidates[i].ID < 0 ? (float)INT_MAX : distance;
 	}
