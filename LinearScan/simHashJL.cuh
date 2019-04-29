@@ -71,10 +71,9 @@ namespace simHashJl {
 	}
 
 	__global__
-		void scan(LaunchDTO<float> launchDTO) {
+	void scan(LaunchDTO<float> launchDTO) {
 		int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
-		int queryIndex = warpId * launchDTO.dimensions;
-		if (queryIndex < launchDTO.dimensions * launchDTO.N_queries) {
+		if (warpId < launchDTO.N_queries) {
 			scanHammingDistanceJL(launchDTO);
 		}
 	}
