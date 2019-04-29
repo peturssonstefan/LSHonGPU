@@ -61,6 +61,8 @@ template <class T, class K>
 void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, Result& res, int numberOfBlocks, int numberOfThreads, bool isHashKeys) {
 	int implementation = isHashKeys ? lshParams.keyImplementation : params.implementation;
 	switch (implementation) {
+	
+	case 2: break;  //Run without sketching; 
 	case 3:
 		printf("Using Simhash to %s \n", isHashKeys ? "generate keys" : "to sketch");
 		runSketchSimHash(params, lshParams, numberOfBlocks, numberOfThreads, isHashKeys);
@@ -394,7 +396,7 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	
 	printf("Running scan \n");
 	before = clock(); 
-	scan << <numberOfBlocks, numberOfThreads>> > (params, lshParams, dev_hashKeys, dev_buckets, dev_resultsDuplicates);
+	scan << <numberOfBlocks * 2, 512>> > (params, lshParams, dev_hashKeys, dev_buckets, dev_resultsDuplicates);
 	waitForKernel(); 
 	time_lapsed = clock() - before;
 	res.scanTime = res.calcTime(time_lapsed); 

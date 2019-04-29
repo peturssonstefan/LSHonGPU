@@ -90,6 +90,9 @@ Result LSH(int implementation, int keysImplementation, int k, int d, int N_query
 
 	switch (implementation)
 	{
+	case 2:
+		return LshPipeline(setupLaunchDTO<float>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables, runWithSketchedData);
+		break; 
 	case 3:
 		return LshPipeline(setupLaunchDTO<unsigned int>(implementation, distanceFunc, k, d, sketchDim, N_query, N_data, data, queries), keysImplementation, bucketKeyBits, tables, runWithSketchedData);
 		break;
