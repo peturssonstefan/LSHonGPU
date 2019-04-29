@@ -19,7 +19,7 @@ run_program(){
     withSketchedData=$9
 
     echo "Run with ../datasets/${dataset}_data.txt ../datasets/${dataset}_queries.txt ../datasets/${dataset}_${distanceFunc}_validation1024k.txt $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $runWithSketchedData $resultFile"
-    ./knn "../datasets/${dataset}_data.txt" "../datasets/${dataset}_queries.txt" "../datasets/${dataset}_${distanceFunc}_validation${k}k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile
+    ./knn "../datasets/${dataset}_data.txt" "../datasets/${dataset}_queries.txt" "../datasets/${dataset}_${distanceFunc}_validation1024k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile
     return
 }
 
@@ -53,7 +53,7 @@ run_memOptimized(){
 
 run_sketches(){
     queueSize=$1
-    maxK=$(($queueSize*32))
+    maxK=$((($queueSize*32)/2))
 
     distanceFunc=1
     # Run simhash and one bit min hash
@@ -104,7 +104,7 @@ run_sketches(){
 
 run_lsh(){
     queueSize=$1
-    maxK=$(($queueSize*32))
+    maxK=$((($queueSize*32)/2))
 
     for numTables in {2..10..2}
     do
@@ -131,7 +131,7 @@ run_lsh(){
                     then
                         break
                     fi
-                    run_program 2 $k 2 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 0
+                    run_program 2 $k 1 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 0
                 done
 
             done
@@ -147,7 +147,7 @@ do
     #Compile
     compile_program
     #Run
-    run_memOptimized $queueSize
+    #run_memOptimized $queueSize
     #run_sketches $queueSize
-    #run_lsh $queueSize
+    run_lsh $queueSize
 done
