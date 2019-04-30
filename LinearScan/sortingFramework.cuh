@@ -170,7 +170,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 		params.exchangeLane = (WARPSIZE - 1) - params.lane;
 		params.elemsToExchange = pairSize / WARPSIZE * 2;
 
-		/*for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
+		for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
 
 			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
 			params.increment = params.lane % 2 == 0 ? 1 : -1;
@@ -193,12 +193,12 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 					}
 				}
 			}
-		}*/
+		}
 
 		//#pragma unroll
-		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-			subSort(val[i], WARPSIZE, params.lane);
-		}
+		//for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		//	subSort(val[i], WARPSIZE, params.lane);
+		//}
 	}
 }
 
