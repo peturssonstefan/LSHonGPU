@@ -151,7 +151,7 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	double free_byte_double = (double)free_byte; 
 	double totals_byte_double = (double)total_byte;
 	double used_bytes = totals_byte_double - free_byte_double; 
-	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", free_byte_double, totals_byte_double, used_bytes);
+	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", ((free_byte_double / 1024) / 1024), ((totals_byte_double / 1024) / 1024), ((used_bytes/1024)/1024));
 	clock_t before = clock();
 	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	waitForKernel();
