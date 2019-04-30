@@ -139,7 +139,7 @@ run_lsh(){
     done
 }
 
-for ((queueSize=2; queueSize <= 256; queueSize*=2))
+for ((queueSize=2; queueSize <= 4; queueSize*=2))
 do
     #Change queueSize 
     #Change to buffer
