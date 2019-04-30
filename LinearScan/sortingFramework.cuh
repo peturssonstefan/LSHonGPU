@@ -159,19 +159,8 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			params.exchangeLane = (params.exchangePairIdx * pairSize + (pairSize - params.pairLane - 1)) % WARPSIZE;
 			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
 			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
-			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			//subSort(val[i], pairSize * 2, params.lane); 
-			for (int offset = pairSize; offset > 0; offset /= 2) {
-
-				otherID = params.lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-				//ID = __shfl_xor_sync(FULL_MASK, val[i].ID, offset, WARPSIZE);
-				distance = __shfl_xor_sync(FULL_MASK, val[i].distance, offset, WARPSIZE);
-
-				direction = params.lane < otherID;
-
-				val[i] = direction ? max(val[i], createPoint(ID, distance)) : min(val[i], createPoint(ID, distance));
-
-			}
+			//val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
+			subSort(val[i], pairSize * 2, params.lane); 
 		}
 	}
 
@@ -191,7 +180,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 				params.pairIdx = params.allIdx / pairSize;
 				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
 				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
-				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
+				//val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			}
 			if (pairSize > WARPSIZE) {
 				for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
@@ -208,7 +197,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
 		//#pragma unroll
 		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-			//subSort(val[i], WARPSIZE, params.lane);
+			subSort(val[i], WARPSIZE, params.lane);
 		}
 	}
 }
