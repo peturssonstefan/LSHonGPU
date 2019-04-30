@@ -40,7 +40,7 @@ change_constants(){
 run_memOptimized(){
     queueSize=$1
     maxK=$((($queueSize*32)/2))
-    for ((k=32; k<=1024; k*=2))
+    for ((k=32; k<=32; k*=2))
     do
         if [ $k -gt $maxK ]
         then
@@ -143,11 +143,11 @@ for ((queueSize=2; queueSize <= 256; queueSize*=2))
 do
     #Change queueSize 
     #Change to buffer
-    change_constants $queueSize 1
+    change_constants $queueSize 0
     #Compile
     compile_program
     #Run
-    #run_memOptimized $queueSize
-    run_sketches $queueSize
+    run_memOptimized $queueSize
+    #run_sketches $queueSize
     #run_lsh $queueSize
 done
