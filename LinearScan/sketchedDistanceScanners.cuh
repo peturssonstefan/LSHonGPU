@@ -26,18 +26,26 @@ void scanHammingDistance(float* originalData, float* originalQuery, int dimensio
 	int warpQueueSize = k / WARPSIZE;
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
+	bool sketchedDistances = implementation != 2; 
 	Point swapPoint;
 	int queuePosition = 0;
-
+	float magnitude_query = 0; 
 //#pragma unroll
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		threadQueue[i] = createPoint(-1, maxKDistance);
 	}
 
+	for (int j = 0; j < dimensions; j++) {
+		magnitude_query += originalQuery[j] * originalQuery[j];
+	}
+
 	for (int i = lane; i < nData; i += WARPSIZE) {
 		int hammingDistance = 0;
 
-		hammingDistance = runSketchedDistanceFunction(implementation, &data[sketchDim*i], &queries[queryIdx], sketchDim);
+		hammingDistance = sketchedDistances ? 
+			runSketchedDistanceFunction(implementation, &data[sketchDim*i], &queries[queryIdx], sketchDim) :
+			runDistanceFunction(distFunc, &originalData[i*dimensions], originalQuery, dimensions, magnitude_query);
+									
 
 		Point currentPoint = createPoint(i, (float)hammingDistance); 
 

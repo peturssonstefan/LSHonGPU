@@ -13,6 +13,7 @@
 #include "launchHelper.cuh"
 #include "processingUtils.cuh"
 #include "distanceFunctions.cuh"
+#include "sketchedDistanceScanners.cuh"
 #include "cudaHelpers.cuh"
 #include "resultDTO.h"
 
@@ -116,6 +117,15 @@ void preprocess(float* queryPoints, float* dataPoints, int nQueries, int nData, 
 	transformData(dataPoints, queryPoints, nData, nQueries, dimensions, minValues);
 }
 
+__global__
+void runScan(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
+	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
+	int queryIndex = warpId * dimensions;
+	if (warpId < nQueries) {
+		scanHammingDistance(dataPoints, &queryPoints[queryIndex], dimensions, nullptr,nullptr, dimensions, nData, nQueries, k, func, 2, result);
+	}
+}
+
 Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc) {
 	setDevice();
 	int numberOfThreads = calculateThreadsLocal(N_query);
@@ -153,7 +163,7 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	double used_bytes = totals_byte_double - free_byte_double; 
 	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", ((free_byte_double / 1024) / 1024), ((totals_byte_double / 1024) / 1024), ((used_bytes/1024)/1024));
 	clock_t before = clock();
-	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
+	runScan << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	waitForKernel();
 
 	clock_t time_lapsed = clock() - before;
