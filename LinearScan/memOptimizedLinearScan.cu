@@ -154,6 +154,9 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 
 	printf("Launching KNN \n");
 	clock_t before = clock();
+	size_t free_byte, total_byte; 
+	cudaMemGetInfo(free_byte, total_byte); 
+	printf("Free bytes: %d, total_bytes: %d \n", free_byte, total_byte); 
 	runKnn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	waitForKernel();
 
