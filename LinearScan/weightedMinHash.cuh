@@ -309,7 +309,7 @@ namespace weightedMinHash {
 	}
 
 	template <class T>
-	Point* runScan(LaunchDTO<T> launchDTO, Result res, int numberOfBlocks, int numberOfThreads) {
+	Point* runScan(LaunchDTO<T> launchDTO, Result& res, int numberOfBlocks, int numberOfThreads) {
 		clock_t before;
 		clock_t time_lapsed;
 
