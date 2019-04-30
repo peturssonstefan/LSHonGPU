@@ -47,7 +47,7 @@ namespace simHash {
 	}
 
 	__global__
-		void scan(float* originalData, float* originalQueries, int dimensions, unsigned int * data, unsigned int * queries, int sketchDim, int N_data, int N_query, int k, Point* result) {
+	void scan(float* originalData, float* originalQueries, int dimensions, unsigned int * data, unsigned int * queries, int sketchDim, int N_data, int N_query, int k, Point* result) {
 
 		int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 		int queryIndex = warpId * dimensions;
