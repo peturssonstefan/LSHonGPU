@@ -59,9 +59,9 @@ run_sketches(){
     # Run simhash and one bit min hash
     for implementation in 3 5
     do
-        for sketchDim in {4..16..2}
+        for sketchDim in {16..16..2}
         do
-            for ((k=32; k<=1024; k*=2))
+            for ((k=32; k<=32; k*=2))
             do
                 if [ $k -gt $maxK ]
                 then
@@ -75,9 +75,9 @@ run_sketches(){
 
     distanceFunc=2
     # Run minhash
-    for sketchDim in {32..64..8}
+    for sketchDim in {64..64..8}
     do
-        for ((k=32; k<=1024; k*=2))
+        for ((k=32; k<=32; k*=2))
         do
             if [ $k -gt $maxK ]
             then
@@ -89,9 +89,9 @@ run_sketches(){
 
     # Run Jonson lindenstrauss
     distanceFunc=3
-    for sketchDim in {10..25..5}
+    for sketchDim in {10..10..5}
     do
-        for ((k=32; k<=1024; k*=2))
+        for ((k=32; k<=32; k*=2))
         do
             if [ $k -gt $maxK ]
             then
@@ -139,15 +139,15 @@ run_lsh(){
     done
 }
 
-for ((queueSize=16; queueSize <= 64; queueSize*=2))
+for ((queueSize=2; queueSize <= 256; queueSize*=2))
 do
     #Change queueSize 
     #Change to buffer
-    change_constants $queueSize 0
+    change_constants $queueSize 1
     #Compile
     compile_program
     #Run
-    run_memOptimized $queueSize
-    #run_sketches $queueSize
+    #run_memOptimized $queueSize
+    run_sketches $queueSize
     #run_lsh $queueSize
 done
