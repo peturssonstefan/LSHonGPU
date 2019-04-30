@@ -20,19 +20,18 @@ __global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
 	
 	Point threadQueue[THREAD_QUEUE_SIZE];
+	int lane = threadIdx.x % WARPSIZE;
+	Parameters params;
+	params.lane = lane; 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * k;
 	int queryId = warpId * dimensions;
 	if (warpId >= nQueries) return;
-	int lane = threadIdx.x % WARPSIZE;
 	float maxKDistance = (float)INT_MAX; 
 	int warpQueueSize = k / WARPSIZE; 
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
-	Parameters params; 
-	params.lane = threadIdx.x % WARPSIZE;
-
 	int queuePosition = 0;
 
 	//Fill thread queue with defaults
@@ -41,9 +40,6 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	}
 
 	float magnitude_query = 0;
-	float dotProduct = 0;
-	float magnitude_data = 0.0;
-	float distance = 0.0;
 
 
 	for (int j = 0; j < dimensions; j++) {
@@ -54,6 +50,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 	//Iterate over data; 
 	for (int i = lane; i < nData; i += WARPSIZE) {
+		float distance = 0.0;
 
 		distance = runDistanceFunction(func, &dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
 
@@ -79,6 +76,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		else {
 			//run buffer
 			if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
+				if (queuePosition >= THREAD_QUEUE_SIZE) printf("Value larger than queue pos \n");
 				threadQueue[queuePosition++] = currentPoint;
 			}
 
@@ -93,6 +91,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		}
 		
 	}
+
 	startSort(threadQueue, swapPoint, params);
 	
 	//Copy result from warp queues to result array in reverse order. 
