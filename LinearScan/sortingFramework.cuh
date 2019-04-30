@@ -144,6 +144,10 @@ __inline__ __device__
 void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
 
+	int otherID; 
+	int ID; 
+	float distance; 
+	bool direction;
 	// MEMORY ISSUE HERE - do not loop unroll 
 	for (int pairSize = 1; pairSize <= WARPSIZE / 2; pairSize *= 2) {
 
@@ -159,11 +163,11 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			//subSort(val[i], pairSize * 2, params.lane); 
 			for (int offset = pairSize; offset > 0; offset /= 2) {
 
-				int otherID = params.lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-				int ID = __shfl_xor_sync(FULL_MASK, val[i].ID, offset, WARPSIZE);
-				float distance = __shfl_xor_sync(FULL_MASK, val[i].distance, offset, WARPSIZE);
+				otherID = params.lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
+				ID = __shfl_xor_sync(FULL_MASK, val[i].ID, offset, WARPSIZE);
+				distance = __shfl_xor_sync(FULL_MASK, val[i].distance, offset, WARPSIZE);
 
-				bool direction = params.lane < otherID;
+				direction = params.lane < otherID;
 
 				val[i] = direction ? max(val[i], createPoint(ID, distance)) : min(val[i], createPoint(ID, distance));
 
