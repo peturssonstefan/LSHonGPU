@@ -105,12 +105,12 @@ void subSort(Point& val,int size, int lane) {
 	for (int offset = size / 2; offset > 0; offset /= 2) {
 		
 		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
-		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
+		//int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
+		//float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
 		
-		bool direction = lane < otherID;
+		//bool direction = lane < otherID;
 
-		val = direction ? max(val, createPoint(ID, distance)) : min(val, createPoint(ID, distance));
+		//val = direction ? max(val, createPoint(ID, distance)) : min(val, createPoint(ID, distance));
 
 	}
 }
@@ -159,7 +159,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			params.exchangeLane = (params.exchangePairIdx * pairSize + (pairSize - params.pairLane - 1)) % WARPSIZE;
 			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
 			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
-			//val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
+			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			subSort(val[i], pairSize * 2, params.lane); 
 		}
 	}
@@ -180,7 +180,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 				params.pairIdx = params.allIdx / pairSize;
 				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
 				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
-				//val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
+				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			}
 			if (pairSize > WARPSIZE) {
 				for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
