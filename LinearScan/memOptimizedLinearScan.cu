@@ -148,7 +148,10 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	size_t free_byte;
 	size_t total_byte;
 	cudaMemGetInfo(&free_byte, &total_byte);
-	printf("Free bytes: %d, total_bytes: %d \n", free_byte, total_byte);
+	double free_byte_double = (double)free_byte; 
+	double totals_byte_double = (double)total_byte;
+	double used_bytes = totals_byte_double - free_byte_double; 
+	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", free_byte_double, totals_byte_double, used_bytes);
 	clock_t before = clock();
 	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	waitForKernel();

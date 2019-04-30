@@ -111,6 +111,14 @@ namespace simHash {
 		Point* dev_results = mallocArray(results, resultSize);
 
 		printf("Calculating Distance. \n");
+		size_t free_byte;
+		size_t total_byte;
+		cudaMemGetInfo(&free_byte, &total_byte);
+		double free_byte_double = (double)free_byte;
+		double totals_byte_double = (double)total_byte;
+		double used_bytes = totals_byte_double - free_byte_double;
+		printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", ((free_byte_double / 1024) / 1024), ((totals_byte_double / 1024) / 1024), ((used_bytes / 1024) / 1024));
+
 		before = clock();
 		scan << <N_query, numberOfThreads >> > (dev_data, dev_queries, d, dev_sketchedData, dev_sketchedQuery, sketchedDim, N_data, N_query, k, dev_results);
 		waitForKernel();
