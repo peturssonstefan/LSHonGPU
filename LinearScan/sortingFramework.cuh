@@ -145,7 +145,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
 
 	int otherID; 
-	int ID; 
+	int ID = 0; 
 	float distance; 
 	bool direction;
 	// MEMORY ISSUE HERE - do not loop unroll 
@@ -164,7 +164,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			for (int offset = pairSize; offset > 0; offset /= 2) {
 
 				otherID = params.lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-				ID = __shfl_xor_sync(FULL_MASK, val[i].ID, offset, WARPSIZE);
+				//ID = __shfl_xor_sync(FULL_MASK, val[i].ID, offset, WARPSIZE);
 				distance = __shfl_xor_sync(FULL_MASK, val[i].distance, offset, WARPSIZE);
 
 				direction = params.lane < otherID;
