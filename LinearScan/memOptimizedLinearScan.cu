@@ -16,7 +16,7 @@
 #include "cudaHelpers.cuh"
 #include "resultDTO.h"
 
-__global__
+__inline__ __device__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
 	
 	Point threadQueue[THREAD_QUEUE_SIZE];
@@ -25,7 +25,6 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	params.lane = lane; 
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * k;
-	int queryId = warpId * dimensions;
 	if (warpId >= nQueries) return;
 	float maxKDistance = (float)INT_MAX; 
 	int warpQueueSize = k / WARPSIZE; 
@@ -43,7 +42,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 
 	for (int j = 0; j < dimensions; j++) {
-		magnitude_query += queryPoints[queryId + j] * queryPoints[queryId + j];
+		magnitude_query += queryPoints[j] * queryPoints[j];
 	}
 
 	magnitude_query = sqrt(magnitude_query);
@@ -52,7 +51,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	for (int i = lane; i < nData; i += WARPSIZE) {
 		float distance = 0.0;
 
-		distance = runDistanceFunction(func, &dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
+		distance = runDistanceFunction(func, &dataPoints[i*dimensions], queryPoints, dimensions, magnitude_query);
 
 		Point currentPoint = createPoint(i, distance);
 
@@ -76,7 +75,6 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 		else {
 			//run buffer
 			if (currentPoint.distance < maxKDistance || same(currentPoint, maxKDistance)) {
-				if (queuePosition >= THREAD_QUEUE_SIZE) printf("Value larger than queue pos \n");
 				threadQueue[queuePosition++] = currentPoint;
 			}
 
@@ -117,6 +115,15 @@ void preprocess(float* queryPoints, float* dataPoints, int nQueries, int nData, 
 	transformData(dataPoints, queryPoints, nData, nQueries, dimensions, minValues);
 }
 
+__global__ 
+void runKnn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
+	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
+	int queryIndex = warpId * dimensions;
+	if (warpId < nQueries) {
+		knn(&queryPoints[queryIndex], dataPoints, nQueries, nData, dimensions, k, result, func); 
+	}
+}
+
 Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* data, float* queries, int distanceFunc) {
 	setDevice();
 	int numberOfThreads = calculateThreadsLocal(N_query);
@@ -147,7 +154,7 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 
 	printf("Launching KNN \n");
 	clock_t before = clock();
-	knn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
+	runKnn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	waitForKernel();
 
 	clock_t time_lapsed = clock() - before;
