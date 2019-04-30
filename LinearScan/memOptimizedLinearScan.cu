@@ -145,7 +145,6 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	}
 
 	printf("Launching KNN \n");
-	clock_t before = clock();
 	size_t free_byte;
 	size_t total_byte;
 	cudaMemGetInfo(&free_byte, &total_byte);
