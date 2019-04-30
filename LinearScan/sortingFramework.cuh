@@ -102,9 +102,9 @@ void setLane(Point& val, int lane, int otherLane, int otherId, float distance) {
 __inline__ __device__
 void subSort(Point& val,int size, int lane) {
 
-	for (int offset = size / 2; offset > 0; offset /= 2) {
+	// for (int offset = size / 2; offset > 0; offset /= 2) {
 		
-		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
+		// int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
 		//int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
 		//float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
 		
@@ -112,7 +112,7 @@ void subSort(Point& val,int size, int lane) {
 
 		//val = direction ? max(val, createPoint(ID, distance)) : min(val, createPoint(ID, distance));
 
-	}
+	// }
 }
 
 __inline__ __device__
