@@ -147,7 +147,7 @@ do
     #Compile
     compile_program
     #Run
-    #run_memOptimized $queueSize
+    run_memOptimized $queueSize
     #run_sketches $queueSize
-    run_lsh $queueSize
+    #run_lsh $queueSize
 done
