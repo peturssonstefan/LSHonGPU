@@ -156,19 +156,12 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	res.scanTime = (time_lapsed * 1000 / CLOCKS_PER_SEC);
 	copyArrayToHost(resultArray, dev_result, resultSize);
 	res.copyResultPoints(resultArray, N_query, k); 
-	//for (int i = 0; i < N_data; i++) {
-	//	printf("%d ", i);
-	//	for (int j = 0; j < d; j++) {
-	//		printf("%f ", data[i * d + j]);
-	//	}
-	//	printf("\n");
-	//}
 
 	//Free memory... 
 	freeDeviceArray(dev_query_points);
 	freeDeviceArray(dev_data_points);
 	freeDeviceArray(dev_result);
-
+	free(resultArray); 
 	resetDevice();
 
 	return res; 

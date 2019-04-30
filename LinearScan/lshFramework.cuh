@@ -3,7 +3,7 @@
 #include "point.h"
 #include "launchDTO.h"
 #include "simHash.cuh"
-#include "randomVectorGenerator.h"; 
+#include "randomVectorGenerator.h" 
 #include "device_launch_parameters.h"
 #include "cudaHelpers.cuh"
 #include <bitset>
