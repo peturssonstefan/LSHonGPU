@@ -165,41 +165,41 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	}
 
 
-	//for (int pairSize = WARPSIZE; pairSize <= (THREAD_QUEUE_SIZE * WARPSIZE) / 2; pairSize *= 2) {
+	for (int pairSize = WARPSIZE; pairSize <= (THREAD_QUEUE_SIZE * WARPSIZE) / 2; pairSize *= 2) {
 
-	//	params.exchangeLane = (WARPSIZE - 1) - params.lane;
-	//	params.elemsToExchange = pairSize / WARPSIZE * 2;
+		params.exchangeLane = (WARPSIZE - 1) - params.lane;
+		params.elemsToExchange = pairSize / WARPSIZE * 2;
 
-	//	for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
+		/*for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
 
-	//		params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
-	//		params.increment = params.lane % 2 == 0 ? 1 : -1;
-	//		params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
-	//		for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
-	//			params.allIdx = params.lane + WARPSIZE * i;
-	//			params.pairIdx = params.allIdx / pairSize;
-	//			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
-	//			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
-	//			val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
-	//		}
-	//		if (pairSize > WARPSIZE) {
-	//			for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
-	//				for (int j = i; j < pairCouple*params.elemsToExchange + params.elemsToExchange; j++) {
-	//					if (val[i].distance < val[j].distance) {
-	//						swapPoint = val[i];
-	//						val[i] = val[j];
-	//						val[j] = swapPoint;
-	//					}
-	//				}
-	//			}
-	//		}
-	//	}
+			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
+			params.increment = params.lane % 2 == 0 ? 1 : -1;
+			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
+			for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
+				params.allIdx = params.lane + WARPSIZE * i;
+				params.pairIdx = params.allIdx / pairSize;
+				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
+				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
+				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
+			}
+			if (pairSize > WARPSIZE) {
+				for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
+					for (int j = i; j < pairCouple*params.elemsToExchange + params.elemsToExchange; j++) {
+						if (val[i].distance < val[j].distance) {
+							swapPoint = val[i];
+							val[i] = val[j];
+							val[j] = swapPoint;
+						}
+					}
+				}
+			}
+		}*/
 
-	//	//#pragma unroll
-	//	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-	//		subSort(val[i], WARPSIZE, params.lane);
-	//	}
-	//}
+		//#pragma unroll
+		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+			subSort(val[i], WARPSIZE, params.lane);
+		}
+	}
 }
 
 __inline__ __device__ 
