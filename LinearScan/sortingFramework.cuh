@@ -149,16 +149,16 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	float distance; 
 	bool direction;
 	// MEMORY ISSUE HERE - do not loop unroll 
-	for (int pairSize = 1; pairSize <= WARPSIZE / 2; pairSize *= 2) {
+	for (int pairSize = 1; pairSize <= warpSize / 2; pairSize *= 2) {
 
 		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-			params.allIdx = params.lane + WARPSIZE * i;
+			params.allIdx = params.lane + warpSize * i;
 			params.pairIdx = params.allIdx / pairSize;
 			params.pairLane = params.allIdx % pairSize;
 			params.exchangePairIdx = params.pairIdx % 2 == 0 ? params.pairIdx + 1 : params.pairIdx - 1;
-			params.exchangeLane = (params.exchangePairIdx * pairSize + (pairSize - params.pairLane - 1)) % WARPSIZE;
-			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
-			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
+			params.exchangeLane = (params.exchangePairIdx * pairSize + (pairSize - params.pairLane - 1)) % warpSize;
+			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
+			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
 			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			//subSort(val[i], pairSize * 2, params.lane); 
 		}
