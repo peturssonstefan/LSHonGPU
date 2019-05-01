@@ -88,7 +88,7 @@ void setLane(Point& val, int lane, int otherLane, int otherId, float distance) {
 	if (lane < otherLane) {
 		if (!(val.distance > distance)) {
 			val.ID = otherId;
-			val.distance = distance; 
+			val.distance = distance;
 		}
 	}
 	else {
@@ -100,19 +100,33 @@ void setLane(Point& val, int lane, int otherLane, int otherId, float distance) {
 }
 
 __inline__ __device__
-void subSort(Point& val,int size, int lane) {
+void subSort(Point& val, int size, int lane) {
 
-	 for (int offset = size / 2; offset > 0; offset /= 2) {
-		
+	for (int offset = size / 2; offset > 0; offset /= 2) {
+
 		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, warpSize);
-		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, warpSize);
-		
+		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
+		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
+
 		bool direction = lane < otherID;
+		//bool distanceDirection = valDistance > distance;
 
 		val = direction ? max(val, createPoint(ID, distance)) : min(val, createPoint(ID, distance));
 
-	 }
+		/*int id = direction ?
+			distanceDirection ? valId : ID
+			: !distanceDirection ? valId : ID;
+		float distanceVal = direction ?
+			distanceDirection ? valDistance : distance
+			: !distanceDirection ? valDistance : distance;
+
+		valId = id;
+		valDistance = distanceVal;*/
+
+
+		//setLane(val, lane, otherID, ID, distance); 
+
+	}
 }
 
 __inline__ __device__
@@ -125,9 +139,15 @@ void subSortUnrolled(Point& val, int lane) {
 		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
 
 		if (threadIdx.x < otherID) {
+			/*val.ID = val.distance > distance ? val.ID : ID;
+			val.distance = val.distance > distance ? val.distance : distance;*/
+
 			val = max(val, createPoint(ID, distance));
 		}
 		else {
+			/*val.ID = val.distance < distance ? val.ID : ID;
+			val.distance = val.distance < distance ? val.distance : distance;*/
+
 			val = min(val, createPoint(ID, distance));
 		}
 	}
@@ -143,12 +163,8 @@ void subSortUnrolled(Point& val, int lane) {
 __inline__ __device__
 void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
-
-	int otherID; 
-	int ID = 0; 
-	float distance; 
-	bool direction;
 	int threadQueueSize = params.allElemSize / warpSize; 
+
 	// MEMORY ISSUE HERE - do not loop unroll 
 	for (int pairSize = 1; pairSize <= warpSize / 2; pairSize *= 2) {
 
@@ -165,48 +181,27 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 		}
 	}
 
-	int maxPairSize = (threadQueueSize * warpSize) / 2; 
-	int increment = params.lane % 2 == 0 ? 1 : -1;
-	int exchangeLane = (warpSize - 1) - params.lane;
 
-	for (int pairSize = WARPSIZE; pairSize <= maxPairSize; pairSize *= 2) {
+	for (int pairSize = WARPSIZE; pairSize <= (threadQueueSize * warpSize) / 2; pairSize *= 2) {
 
-		//params.exchangeLane = (warpSize - 1) - params.lane;
-		//params.elemsToExchange = pairSize / warpSize * 2;
+		params.exchangeLane = (warpSize - 1) - params.lane;
+		params.elemsToExchange = pairSize / warpSize * 2;
 
-		int elemsToExchange = pairSize / warpSize * 2;
-		for (int pairCouple = 0; pairCouple < (threadQueueSize / 2); pairCouple++) {
+		for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
 
-
-			int start = params.lane % 2 == 0 ? pairCouple * elemsToExchange : pairCouple * elemsToExchange + elemsToExchange - 1;
-			//params.increment = params.lane % 2 == 0 ? 1 : -1;
-			//params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
-			int end = elemsToExchange + (pairCouple * elemsToExchange);
-			int smallestLoopVal = pairCouple * elemsToExchange; 
-			if (params.lane % 2 == 0) {
-				for (int i = start; i < end; i++) { // Error is here
-					params.allIdx = params.lane + warpSize * i;
-					params.pairIdx = params.allIdx / pairSize;
-					swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
-					swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
-					val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
-				}
+			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
+			params.increment = params.lane % 2 == 0 ? 1 : -1;
+			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
+			for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
+				params.allIdx = params.lane + warpSize * i;
+				params.pairIdx = params.allIdx / pairSize;
+				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
+				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
+				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			}
-			else {
-				for (int i = start; i >= smallestLoopVal; i--) { // Error is here
-					params.allIdx = params.lane + warpSize * i;
-					params.pairIdx = params.allIdx / pairSize;
-					swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
-					swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
-					val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
-				}
-			}
-
 			if (pairSize > warpSize) {
-				int lStart = pairCouple * elemsToExchange; 
-				int lEnd = pairCouple * elemsToExchange + elemsToExchange; 
-				for (int i = lStart; i < lEnd; i++) {
-					for (int j = i; j < lEnd; j++) {
+				for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
+					for (int j = i; j < pairCouple*params.elemsToExchange + params.elemsToExchange; j++) {
 						if (val[i].distance < val[j].distance) {
 							swapPoint = val[i];
 							val[i] = val[j];
@@ -215,40 +210,16 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 					}
 				}
 			}
-			//for (int i = start; i < end && i >= smallestLoopVal; i += increment) {
-				//params.allIdx = params.lane + warpSize * i;
-				//params.pairIdx = params.allIdx / pairSize;
-				//swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
-				//swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
-				//val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			//}
-			//for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
-			//	params.allIdx = params.lane + warpSize * i;
-			//	params.pairIdx = params.allIdx / pairSize;
-			//	swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
-			//	swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
-			//	val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			//}
-			//if (pairSize > warpSize) {
-			//	for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
-			//		for (int j = i; j < pairCouple*params.elemsToExchange + params.elemsToExchange; j++) {
-			//			if (val[i].distance < val[j].distance) {
-			//				swapPoint = val[i];
-			//				val[i] = val[j];
-			//				val[j] = swapPoint;
-			//			}
-			//		}
-			//	}
-			//}
 		}
 
+		//#pragma unroll
 		for (int i = 0; i < threadQueueSize; i++) {
-			subSort(val[i], warpSize, params.lane);
+			subSortUnrolled(val[i], params.lane);
 		}
 	}
 }
 
-__inline__ __device__ 
+__inline__ __device__
 void simpleSort(Point* threadQueue, Point swapPoint) {
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		for (int j = i; j < THREAD_QUEUE_SIZE; j++) {
