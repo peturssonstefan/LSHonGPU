@@ -167,18 +167,21 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
 	int maxPairSize = (threadQueueSize * warpSize) / 2; 
 	int increment = params.lane % 2 == 0 ? 1 : -1;
+	int exchangeLane = (warpSize - 1) - params.lane;
 
 	for (int pairSize = WARPSIZE; pairSize <= maxPairSize; pairSize *= 2) {
 
-		params.exchangeLane = (warpSize - 1) - params.lane;
-		params.elemsToExchange = pairSize / warpSize * 2;
+		//params.exchangeLane = (warpSize - 1) - params.lane;
+		//params.elemsToExchange = pairSize / warpSize * 2;
 
+		int elemsToExchange = pairSize / warpSize * 2;
 		for (int pairCouple = 0; pairCouple < (threadQueueSize / 2); pairCouple++) {
 
 
-			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
+			int start = params.lane % 2 == 0 ? pairCouple * elemsToExchange : pairCouple * elemsToExchange + elemsToExchange - 1;
 			//params.increment = params.lane % 2 == 0 ? 1 : -1;
-			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
+			//params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
+			int end = elemsToExchange + (pairCouple * elemsToExchange);
 			int smallestLoopVal = pairCouple * params.elemsToExchange; 
 			for (int i = params.start; i < params.end && i >= smallestLoopVal; i += increment) {
 
