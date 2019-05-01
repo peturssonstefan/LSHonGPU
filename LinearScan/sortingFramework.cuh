@@ -183,7 +183,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			//params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
 			int end = elemsToExchange + (pairCouple * elemsToExchange);
 			int smallestLoopVal = pairCouple * elemsToExchange; 
-			for (int i = start; i < 10; i++) {
+			for (int i = start; i < end; i++) {
 				params.allIdx = params.lane + warpSize * i;
 				params.pairIdx = params.allIdx / pairSize;
 				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
