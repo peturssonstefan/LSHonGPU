@@ -165,10 +165,12 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 		}
 	}
 
-	for (int pairSize = WARPSIZE; pairSize <= (THREAD_QUEUE_SIZE * WARPSIZE) / 2; pairSize *= 2) {
+	int maxPairSize = (threadQueueSize * warpSize) / 2; 
 
-		params.exchangeLane = (WARPSIZE - 1) - params.lane;
-		params.elemsToExchange = pairSize / WARPSIZE * 2;
+	for (int pairSize = WARPSIZE; pairSize <= maxPairSize; pairSize *= 2) {
+
+		params.exchangeLane = (warpSize - 1) - params.lane;
+		params.elemsToExchange = pairSize / warpSize * 2;
 
 		for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
 
@@ -176,13 +178,13 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			params.increment = params.lane % 2 == 0 ? 1 : -1;
 			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
 			for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
-				params.allIdx = params.lane + WARPSIZE * i;
+				params.allIdx = params.lane + warpSize * i;
 				params.pairIdx = params.allIdx / pairSize;
-				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, WARPSIZE);
-				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
+				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
+				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
 				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			}
-			if (pairSize > WARPSIZE) {
+			if (pairSize > warpSize) {
 				for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
 					for (int j = i; j < pairCouple*params.elemsToExchange + params.elemsToExchange; j++) {
 						if (val[i].distance < val[j].distance) {
@@ -195,8 +197,8 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			}
 		}
 
-		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
-			subSort(val[i], WARPSIZE, params.lane);
+		for (int i = 0; i < threadQueueSize; i++) {
+			subSort(val[i], warpSize, params.lane);
 		}
 	}
 }
