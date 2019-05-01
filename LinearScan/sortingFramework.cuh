@@ -184,7 +184,8 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			int end = elemsToExchange + (pairCouple * elemsToExchange);
 			int smallestLoopVal = pairCouple * elemsToExchange; 
 			for (int i = start; i < 10; i++) {
-
+				params.allIdx = params.lane + warpSize * i;
+				params.pairIdx = params.allIdx / pairSize;
 			}
 			//for (int i = start; i < end && i >= smallestLoopVal; i += increment) {
 				//params.allIdx = params.lane + warpSize * i;
