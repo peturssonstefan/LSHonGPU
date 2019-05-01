@@ -184,23 +184,12 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			int end = elemsToExchange + (pairCouple * elemsToExchange);
 			int smallestLoopVal = pairCouple * elemsToExchange; 
 			for (int i = start; i < end && i >= smallestLoopVal; i += increment) {
-				params.allIdx = params.lane + warpSize * i;
-				params.pairIdx = params.allIdx / pairSize;
-				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
-				swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
-				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
+				//params.allIdx = params.lane + warpSize * i;
+				//params.pairIdx = params.allIdx / pairSize;
+				//swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
+				//swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
+				//val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			}
-			/*if (pairSize > warpSize) {
-				for (int i = pairCouple * elemsToExchange; i < pairCouple*elemsToExchange + elemsToExchange; i++) {
-					for (int j = i; j < pairCouple * elemsToExchange + elemsToExchange; j++) {
-						if (val[i].distance < val[j].distance) {
-							swapPoint = val[i];
-							val[i] = val[j];
-							val[j] = swapPoint;
-						}
-					}
-				}
-			}*/
 			//for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
 			//	params.allIdx = params.lane + warpSize * i;
 			//	params.pairIdx = params.allIdx / pairSize;
