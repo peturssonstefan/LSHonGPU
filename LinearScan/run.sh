@@ -25,7 +25,14 @@ run_program(){
 
 compile_program(){
     echo "Compiling program"
-    nvcc -std=c++11 -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp randomVectorGenerator.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu
+    nvcc -std=c++11 -rdc=true -O3 -arch=sm_61 -o knn kernel.cu gloveparser.cu resultWriter.cpp validation.cpp statisticsCpu.cpp randomVectorGenerator.cpp cudaHelpers.cu simHash.cu simpleLinearScan.cu optimizedLinearScan.cu memOptimizedLinearScan.cu &> compile_log.txt
+    errors=$(grep -c "error" "compile_log.txt")
+    if [[ $errors -gt 0 ]]
+    then 
+	echo "Error in compilation"
+	exit
+    fi
+    echo "Done compiling"
 }
 
 change_constants(){
@@ -57,7 +64,7 @@ run_sketches(){
 
     distanceFunc=1
     # Run simhash and one bit min hash
-    for implementation in 3 5
+    for implementation in 3
     do
         for sketchDim in {16..16..2}
         do
