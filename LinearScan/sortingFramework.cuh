@@ -148,10 +148,11 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	int ID = 0; 
 	float distance; 
 	bool direction;
+	int threadQueueSize = params.allElemSize / warpSize; 
 	// MEMORY ISSUE HERE - do not loop unroll 
 	for (int pairSize = 1; pairSize <= warpSize / 2; pairSize *= 2) {
 
-		for (int i = 0; i < params.allElemSize / warpSize; i++) {
+		for (int i = 0; i < threadQueueSize; i++) {
 			params.allIdx = params.lane + warpSize * i;
 			params.pairIdx = params.allIdx / pairSize;
 			params.pairLane = params.allIdx % pairSize;
