@@ -104,9 +104,9 @@ void subSort(Point& val,int size, int lane) {
 
 	 for (int offset = size / 2; offset > 0; offset /= 2) {
 		
-		 int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
-		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
+		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
+		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, warpSize);
+		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, warpSize);
 		
 		bool direction = lane < otherID;
 
