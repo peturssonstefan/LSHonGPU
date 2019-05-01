@@ -151,7 +151,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	// MEMORY ISSUE HERE - do not loop unroll 
 	for (int pairSize = 1; pairSize <= WARPSIZE / 2; pairSize *= 2) {
 
-		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
+		/*for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 			params.allIdx = params.lane + WARPSIZE * i;
 			params.pairIdx = params.allIdx / pairSize;
 			params.pairLane = params.allIdx % pairSize;
@@ -161,7 +161,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, WARPSIZE);
 			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			subSort(val[i], pairSize * 2, params.lane); 
-		}
+		}*/
 	}
 
 
