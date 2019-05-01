@@ -161,7 +161,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
 			swapPoint.distance = __shfl_sync(FULL_MASK, val[i].distance, params.exchangeLane, warpSize);
 			val[i] = params.lane < params.exchangeLane ? max(val[i], swapPoint) : min(val[i], swapPoint);
-			//subSort(val[i], pairSize * 2, params.lane); 
+			subSort(val[i], pairSize * 2, params.lane); 
 		}
 	}
 
