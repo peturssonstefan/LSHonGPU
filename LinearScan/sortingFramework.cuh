@@ -191,7 +191,14 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 				val[i] = params.pairIdx % 2 == 0 ? max(val[i], swapPoint) : min(val[i], swapPoint);
 			}
 			if (pairSize > warpSize) {
-				for (int i = pairCouple * params.elemsToExchange; i < pairCouple*params.elemsToExchange + params.elemsToExchange; i++) {
+				for (int i = pairCouple * elemsToExchange; i < pairCouple*elemsToExchange + elemsToExchange; i++) {
+					for (int j = i; j < pairCouple * elemsToExchange + elemsToExchange; j++) {
+						if (val[i].distance < val[j].distance) {
+							swapPoint = val[i];
+							val[i] = val[j];
+							val[j] = swapPoint;
+						}
+					}
 				}
 			}
 			//for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) {
