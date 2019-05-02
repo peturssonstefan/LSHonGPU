@@ -13,21 +13,23 @@
 #include "launchHelper.cuh"
 #include "processingUtils.cuh"
 #include "distanceFunctions.cuh"
+#include "sketchedDistanceScanners.cuh"
 #include "cudaHelpers.cuh"
 #include "resultDTO.h"
 
-__inline__ __device__
+__global__
 void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
-	
+
 	Point threadQueue[THREAD_QUEUE_SIZE];
 	int lane = threadIdx.x % WARPSIZE;
 	Parameters params;
-	params.lane = lane; 
+	params.lane = lane;
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int resultIdx = warpId * k;
+	int queryId = warpId * dimensions;
 	if (warpId >= nQueries) return;
-	float maxKDistance = (float)INT_MAX; 
-	int warpQueueSize = k / WARPSIZE; 
+	float maxKDistance = (float)INT_MAX;
+	int warpQueueSize = k / WARPSIZE;
 	int candidateSetSize = THREAD_QUEUE_SIZE - warpQueueSize;
 	int localMaxKDistanceIdx = THREAD_QUEUE_SIZE - warpQueueSize;
 	Point swapPoint;
@@ -42,7 +44,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 
 
 	for (int j = 0; j < dimensions; j++) {
-		magnitude_query += queryPoints[j] * queryPoints[j];
+		magnitude_query += queryPoints[queryId + j] * queryPoints[queryId + j];
 	}
 
 	magnitude_query = sqrt(magnitude_query);
@@ -51,7 +53,7 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 	for (int i = lane; i < nData; i += WARPSIZE) {
 		float distance = 0.0;
 
-		distance = runDistanceFunction(func, &dataPoints[i*dimensions], queryPoints, dimensions, magnitude_query);
+		distance = runDistanceFunction(func, &dataPoints[i*dimensions], &queryPoints[queryId], dimensions, magnitude_query);
 
 		Point currentPoint = createPoint(i, distance);
 
@@ -87,13 +89,13 @@ void knn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dim
 				queuePosition = 0;
 			}
 		}
-		
+
 	}
 
 	startSort(threadQueue, swapPoint, params);
-	
+
 	//Copy result from warp queues to result array in reverse order. 
-	int kIdx = (WARPSIZE - lane) - 1; 
+	int kIdx = (WARPSIZE - lane) - 1;
 	int warpQueueIdx = THREAD_QUEUE_SIZE - 1;
 
 	for (int i = kIdx; i < k; i += WARPSIZE)
@@ -115,12 +117,12 @@ void preprocess(float* queryPoints, float* dataPoints, int nQueries, int nData, 
 	transformData(dataPoints, queryPoints, nData, nQueries, dimensions, minValues);
 }
 
-__global__ 
-void runKnn(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
+__global__
+void runScan(float* queryPoints, float* dataPoints, int nQueries, int nData, int dimensions, int k, Point* result, int func) {
 	int warpId = (blockIdx.x * blockDim.x + threadIdx.x) / WARPSIZE;
 	int queryIndex = warpId * dimensions;
 	if (warpId < nQueries) {
-		knn(&queryPoints[queryIndex], dataPoints, nQueries, nData, dimensions, k, result, func); 
+		scanHammingDistance(dataPoints, &queryPoints[queryIndex], dimensions, nullptr,nullptr, dimensions, nData, nQueries, k, func, 2, result);
 	}
 }
 
@@ -128,6 +130,10 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	setDevice();
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
+	if (THREAD_QUEUE_SIZE <= 8 || THREAD_QUEUE_SIZE > 64) {
+		numberOfThreads /= 2;
+		numberOfBlocks *= 2;
+	}
 	int resultSize = N_query * k;
 	Point *resultArray = (Point*)malloc(resultSize * sizeof(Point));
 	Result res;
@@ -148,27 +154,34 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 
 		normalizeData << < numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d);
 		waitForKernel();
-		
+
 		printf("Done preprocessing \n");
 	}
 
 	printf("Launching KNN \n");
+	size_t free_byte;
+	size_t total_byte;
+	cudaMemGetInfo(&free_byte, &total_byte);
+	double free_byte_double = (double)free_byte; 
+	double totals_byte_double = (double)total_byte;
+	double used_bytes = totals_byte_double - free_byte_double; 
+	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", ((free_byte_double / 1024) / 1024), ((totals_byte_double / 1024) / 1024), ((used_bytes/1024)/1024));
 	clock_t before = clock();
-	runKnn << <numberOfBlocks, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
+	knn << <numberOfBlocks, numberOfThreads>> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	waitForKernel();
 
 	clock_t time_lapsed = clock() - before;
 	printf("Time calculate on the GPU: %d \n", (time_lapsed * 1000 / CLOCKS_PER_SEC));
 	res.scanTime = (time_lapsed * 1000 / CLOCKS_PER_SEC);
 	copyArrayToHost(resultArray, dev_result, resultSize);
-	res.copyResultPoints(resultArray, N_query, k); 
+	res.copyResultPoints(resultArray, N_query, k);
 
 	//Free memory... 
 	freeDeviceArray(dev_query_points);
 	freeDeviceArray(dev_data_points);
 	freeDeviceArray(dev_result);
-	free(resultArray); 
+	free(resultArray);
 	resetDevice();
 
-	return res; 
+	return res;
 }

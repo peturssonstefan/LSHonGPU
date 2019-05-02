@@ -88,7 +88,7 @@ void setLane(Point& val, int lane, int otherLane, int otherId, float distance) {
 	if (lane < otherLane) {
 		if (!(val.distance > distance)) {
 			val.ID = otherId;
-			val.distance = distance; 
+			val.distance = distance;
 		}
 	}
 	else {
@@ -100,28 +100,26 @@ void setLane(Point& val, int lane, int otherLane, int otherId, float distance) {
 }
 
 __inline__ __device__
-void subSort(Point& val,int size, int lane) {
+void subSort(Point& val, int size, int lane) {
 
 	for (int offset = size / 2; offset > 0; offset /= 2) {
-		
+
 		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
 		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
 		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
-		
+
 		bool direction = lane < otherID;
 		//bool distanceDirection = valDistance > distance;
 
 		val = direction ? max(val, createPoint(ID, distance)) : min(val, createPoint(ID, distance));
 
-		/*int id = direction ? 
-			distanceDirection ? valId : ID 
+		/*int id = direction ?
+			distanceDirection ? valId : ID
 			: !distanceDirection ? valId : ID;
-
 		float distanceVal = direction ?
 			distanceDirection ? valDistance : distance
 			: !distanceDirection ? valDistance : distance;
 
-		
 		valId = id;
 		valDistance = distanceVal;*/
 
@@ -220,7 +218,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	}
 }
 
-__inline__ __device__ 
+__inline__ __device__
 void simpleSort(Point* threadQueue, Point swapPoint) {
 	for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 		for (int j = i; j < THREAD_QUEUE_SIZE; j++) {

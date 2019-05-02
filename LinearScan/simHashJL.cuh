@@ -94,6 +94,10 @@ namespace simHashJl {
 		setDevice();
 		int numberOfThreads = calculateThreadsLocal(N_query);
 		int numberOfBlocks = calculateBlocksLocal(N_query);
+		if (THREAD_QUEUE_SIZE <= 8 || THREAD_QUEUE_SIZE > 64) {
+			numberOfThreads /= 2;
+			numberOfBlocks *= 2;
+		}
 		int randomVectorSize = sketchedDim * d;
 		LaunchDTO<float> launchDTO = setupLaunchDTO<float>(6, 3, k, d, sketchedDim, N_query, N_data, data, queries);
 		simHashJl::normalizeVectors << <numberOfBlocks, numberOfThreads >> > (launchDTO);
