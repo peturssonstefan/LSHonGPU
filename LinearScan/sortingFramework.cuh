@@ -167,16 +167,18 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 		}
 	}
 
+	params.exchangeLane = (warpSize - 1) - params.lane;
+	params.increment = params.lane % 2 == 0 ? 1 : -1;
 
 	for (int pairSize = WARPSIZE; pairSize <= (threadQueueSize * warpSize) / 2; pairSize *= 2) {
 
-		params.exchangeLane = (warpSize - 1) - params.lane;
+		
 		params.elemsToExchange = pairSize / warpSize * 2;
+		int maxPairCoupleSize = ((params.allElemSize / pairSize) / 2); 
 
-		for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
+		for (int pairCouple = 0; pairCouple < maxPairCoupleSize; pairCouple++) {
 
 			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
-			params.increment = params.lane % 2 == 0 ? 1 : -1;
 			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
 			for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) { //= params.increment
 				params.allIdx = params.lane + warpSize * i;
