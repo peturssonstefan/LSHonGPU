@@ -149,12 +149,10 @@ void subSortUnrolled(Point& val, int lane) {
 __inline__ __device__
 void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
-	int threadQueueSize = params.allElemSize / warpSize; 
-
 	// MEMORY ISSUE HERE - do not loop unroll 
 	for (int pairSize = 1; pairSize <= warpSize / 2; pairSize *= 2) {
 
-		for (int i = 0; i < threadQueueSize; i++) {
+		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 			params.allIdx = params.lane + warpSize * i;
 			params.pairIdx = params.allIdx / pairSize;
 			params.pairLane = params.allIdx % pairSize;
@@ -170,13 +168,12 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 	params.exchangeLane = (warpSize - 1) - params.lane;
 	params.increment = params.lane % 2 == 0 ? 1 : -1;
 
-	for (int pairSize = WARPSIZE; pairSize <= (threadQueueSize * warpSize) / 2; pairSize *= 2) {
+	for (int pairSize = WARPSIZE; pairSize <= (THREAD_QUEUE_SIZE * warpSize) / 2; pairSize *= 2) {
 
 		
 		params.elemsToExchange = pairSize / warpSize * 2;
-		int maxPairCoupleSize = ((params.allElemSize / pairSize) / 2); 
 
-		for (int pairCouple = 0; pairCouple < maxPairCoupleSize; pairCouple++) {
+		for (int pairCouple = 0; pairCouple < ((params.allElemSize / pairSize) / 2); pairCouple++) {
 
 			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
 			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
@@ -201,7 +198,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 		}
 
 		//#pragma unroll
-		for (int i = 0; i < threadQueueSize; i++) {
+		for (int i = 0; i < THREAD_QUEUE_SIZE; i++) {
 			subSortUnrolled(val[i], params.lane);
 		}
 	}
