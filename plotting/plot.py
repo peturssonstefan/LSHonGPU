@@ -15,7 +15,6 @@ runPlots = int(sys.argv[3])
 kValues = [32,64,128,256,512,1024]
 
 print(f"Reading file: {fileName}")
-
 namesArr = ["implementation","keyImplementation","sketchDim","k","THREAD_QUEUE_SIZE","bucketKeyBits","tables","WITH_TQ_OR_BUFFER","preprocessTime","constructionTime","scanTime","recall","avgDistance"]
 data = np.genfromtxt(fileName, dtype=None, names=namesArr, delimiter=",")
 data = data[data["scanTime"].argsort()]
@@ -53,7 +52,17 @@ def plotRecallVsTime(ax, dataK, k):
     ax.legend()
 
 
+def plotRecallVsBits(ax, dataK, k):
+    ax.plot(dataK[dataK["implementation"]==3]["sketchDim"]*32, dataK[dataK["implementation"]==3]["recall"],'C1', label="SIMHASH")
+    ax.plot(dataK[dataK["implementation"]==4]["sketchDim"]*8, dataK[dataK["implementation"]==4]["recall"],'C2', label="MINHASH")
+    ax.plot(dataK[dataK["implementation"]==5]["sketchDim"]*32, dataK[dataK["implementation"]==5]["recall"],'C3', label="MINHASH1BIT")
+    # ax.plot(dataK[dataK["implementation"]==6]["sketchDim"], dataK[dataK["implementation"]==6]["recall"],'C4', label="JL")
 
+    ax.set_ylabel("Recall")
+    ax.set_xlabel("Number of bits")
+    ax.set_title(f"{dataset} sketch results k={k}")
+    ax.set_yticks(yMajorTicks)
+    ax.legend()
 
 def runPlotRecallVsTimeData(): 
     for currentK in kValues:
@@ -62,7 +71,13 @@ def runPlotRecallVsTimeData():
         plt.savefig(f"plots/{dataset}recallvstime{currentK}k.png")
 
     
-
+def runPlotRecallVsBits():
+    dataSort = data[data["sketchDim"].argsort()]
+    
+    for currentK in kValues:
+        fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
+        plotRecallVsBits(axes, dataSort[dataSort["k"]==currentK], currentK)
+        plt.savefig(f"plots/{dataset}recallvsbits{currentK}k.png")
 
 def runPlotBufVsSort():
     dataSortTQ = data[data["THREAD_QUEUE_SIZE"].argsort()]
@@ -85,7 +100,8 @@ def runAll():
 
 switcher = {
     0: runPlotBufVsSort,
-    1: runPlotRecallVsTimeData
+    1: runPlotRecallVsTimeData,
+    2: runPlotRecallVsBits
 }
 
 print(f"Running {runPlots}")
