@@ -130,6 +130,10 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	setDevice();
 	int numberOfThreads = calculateThreadsLocal(N_query);
 	int numberOfBlocks = calculateBlocksLocal(N_query);
+	if (THREAD_QUEUE_SIZE <= 8 || THREAD_QUEUE_SIZE > 64) {
+		numberOfThreads /= 2;
+		numberOfBlocks *= 2;
+	}
 	int resultSize = N_query * k;
 	Point *resultArray = (Point*)malloc(resultSize * sizeof(Point));
 	Result res;
@@ -163,7 +167,7 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 	double used_bytes = totals_byte_double - free_byte_double; 
 	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", ((free_byte_double / 1024) / 1024), ((totals_byte_double / 1024) / 1024), ((used_bytes/1024)/1024));
 	clock_t before = clock();
-	knn << <numberOfBlocks * 2, numberOfThreads / 2>> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
+	knn << <numberOfBlocks, numberOfThreads>> > (dev_query_points, dev_data_points, N_query, N_data, d, k, dev_result, distanceFunc);
 	waitForKernel();
 
 	clock_t time_lapsed = clock() - before;

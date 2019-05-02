@@ -345,6 +345,10 @@ namespace weightedMinHash {
 	Result runWeightedMinHashLinearScan(int k, int d, int sketchedDim, int N_query, int N_data, float* data, float* queries, int implementation) {
 		int numberOfThreads = calculateThreadsLocal(N_query);
 		int numberOfBlocks = calculateBlocksLocal(N_query);
+		if (THREAD_QUEUE_SIZE <= 8 || THREAD_QUEUE_SIZE > 64) {
+			numberOfThreads /= 2; 
+			numberOfBlocks *= 2; 
+		}
 		Result res;
 		res.setupResult(N_query, k);
 		int charSize = 255;
