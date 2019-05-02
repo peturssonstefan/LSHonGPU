@@ -202,7 +202,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
 		//#pragma unroll
 		for (int i = 0; i < threadQueueSize; i++) {
-			subSort(val[i], warpSize, params.lane);
+			subSortUnrolled(val[i], params.lane);
 		}
 	}
 }
