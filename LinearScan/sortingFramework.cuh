@@ -105,27 +105,13 @@ void subSort(Point& val, int size, int lane) {
 	for (int offset = size / 2; offset > 0; offset /= 2) {
 
 		int otherID = lane ^ offset; //__shfl_xor_sync(FULL_MASK, threadIdx.x, offset, WARPSIZE);
-		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, WARPSIZE);
-		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, WARPSIZE);
+		int ID = __shfl_xor_sync(FULL_MASK, val.ID, offset, warpSize);
+		float distance = __shfl_xor_sync(FULL_MASK, val.distance, offset, warpSize);
 
 		bool direction = lane < otherID;
 		//bool distanceDirection = valDistance > distance;
 
 		val = direction ? max(val, createPoint(ID, distance)) : min(val, createPoint(ID, distance));
-
-		/*int id = direction ?
-			distanceDirection ? valId : ID
-			: !distanceDirection ? valId : ID;
-		float distanceVal = direction ?
-			distanceDirection ? valDistance : distance
-			: !distanceDirection ? valDistance : distance;
-
-		valId = id;
-		valDistance = distanceVal;*/
-
-
-		//setLane(val, lane, otherID, ID, distance); 
-
 	}
 }
 
@@ -192,7 +178,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 			params.start = params.lane % 2 == 0 ? pairCouple * params.elemsToExchange : pairCouple * params.elemsToExchange + params.elemsToExchange - 1;
 			params.increment = params.lane % 2 == 0 ? 1 : -1;
 			params.end = params.elemsToExchange + (pairCouple * params.elemsToExchange);
-			for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i++) { //= params.increment
+			for (int i = params.start; i < params.end && i >= pairCouple * params.elemsToExchange; i += params.increment) { //= params.increment
 				params.allIdx = params.lane + warpSize * i;
 				params.pairIdx = params.allIdx / pairSize;
 				swapPoint.ID = __shfl_sync(FULL_MASK, val[i].ID, params.exchangeLane, warpSize);
@@ -214,7 +200,7 @@ void laneStrideSort(Point* val, Point swapPoint, Parameters& params) {
 
 		//#pragma unroll
 		for (int i = 0; i < threadQueueSize; i++) {
-			subSortUnrolled(val[i], params.lane);
+			subSort(val[i], warpSize, params.lane);
 		}
 	}
 }
