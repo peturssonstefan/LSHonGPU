@@ -76,6 +76,8 @@ Result LshPipeline(LaunchDTO<T> params, int keysImplementation, int bucketKeyBit
 	case 6: 
 		printf("Invalid implementation selected for LSH. \n");
 		break; 
+	case 7: 
+		return executeLSH(params, setupLshLaunchDTO<unsigned short>(keysImplementation, bucketKeyBits, tables, params.N_data, params.N_queries, runWithSketchedData)); 
 	default:
 		printf("Invalid implementation selected for LSH. \n");
 		//exit(-1);
