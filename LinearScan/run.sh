@@ -126,9 +126,9 @@ run_lsh(){
                         if [ $k -gt $maxK ]
                         then
                             break
-                        fi
-                        run_program 3 $k 1 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 1
-                        run_program 5 $k 2 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 1
+                        fi    
+			run_program 3 $k 1 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 1
+			run_program 5 $k 2 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 1
                     done
                 done
 
@@ -138,15 +138,33 @@ run_lsh(){
                     then
                         break
                     fi
-                    run_program 2 $k 1 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 0
+		    if [ $bucketKeyImplementation -eq 3 ]
+		    then 
+			run_program 2 $k 1 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 0
+		    else 
+			run_program 2 $k 2 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 0
+		    fi	
                 done
-
             done
         done
+	for sketchDim in {10..16..2}
+	do 
+	    for ((k=32; k<=1024; k*=2))
+	    do
+		if [ $k -gt $maxK ]
+		then
+		    break
+		fi
+		run_program 3 $k 1 $sketchDim 1 6 $numTables 7 1
+		run_program 5 $k 2 $sketchDim 1 6 $numTables 7 1
+		run_program 2 $k 1 $sketchDim 1 6 $numTables 7 1
+
+	    done
+	done
     done
 }
 
-for ((queueSize=2; queueSize <= 4; queueSize*=2))
+for ((queueSize=2; queueSize <= 128; queueSize*=2))
 do
     #Change queueSize 
     #Change to buffer
@@ -154,7 +172,7 @@ do
     #Compile
     compile_program
     #Run
-    run_memOptimized $queueSize
+    #run_memOptimized $queueSize
     #run_sketches $queueSize
-    #run_lsh $queueSize
+    run_lsh $queueSize
 done
