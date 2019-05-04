@@ -89,7 +89,7 @@ namespace crosspoly {
 		if (n == 0)
 			return false;
 
-		return (ceil(log2(n)) == floor(log2(n)));
+		return (ceil(log2((float)n)) == floor(log2((float)n)));
 	}
 
 	int logDim(int dim) {
