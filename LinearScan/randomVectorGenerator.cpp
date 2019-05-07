@@ -68,8 +68,20 @@ float* generateRandomVectors(int N, int sketchDim, bool randomSeed) {
 	for (int i = 0; i < N; ++i)
 	{
 		vectors[i] = distribution(generator);
-		//std::cout << vectors[i] << ",";
 	}
 	//std::cout << std::endl; 
 	return vectors;
+}
+
+void generateRandomOnePlusMinusVector(int size, int* vectors) {
+	std::default_random_engine generator;
+
+	std::uniform_int_distribution<int> distribution(0, 2); // Standard normal distribution.
+
+	for (int i = 0; i < size; ++i)
+	{
+		vectors[i] = distribution(generator) == 0 ? -1 : 1;
+		//std::cout << vectors[i] << ",";
+	}
+	//std::cout << std::endl; 
 }

@@ -11,6 +11,7 @@
 #include <cuda.h>
 #include "weightedMinHash.cuh"
 #include "simHashJL.cuh"
+#include "crossPolyTope.cuh"
 
 template<class T>
 void runSketchJL(LaunchDTO<T> params) {
@@ -84,6 +85,17 @@ void generateHashes(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, Result& res,
 		}
 		runSketchJL(params);
 		break;
+	case 7: 
+		if (isHashKeys) {
+			printf("Using CrossPoly as hash key \n"); 
+			crosspoly::crossPolyTopeHashing(params, lshParams, res, numberOfBlocks, numberOfThreads);
+			break;
+		}
+		else {
+			printf("Cross Poly is not suited as sketching algorithm \n");
+			resetDevice();
+			exit(-1); 
+		}
 	}
 }
 
@@ -330,13 +342,13 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 
 	copyArrayToHost(hashKeys, dev_hashKeys, totalBucketCount);
 
-	//int bucketSum = 0;
-	//for (int i = 0; i < totalBucketCount; i++) {
-	//	printf("[%d] = %d \n", i, hashKeys[i]);
-	//	bucketSum += hashKeys[i];
-	//}
+	/*int bucketSum = 0;
+	for (int i = 0; i < totalBucketCount; i++) {
+		printf("[%d] = %d \n", i, hashKeys[i]);
+		bucketSum += hashKeys[i];
+	}
 
-	//printf("Buckets sum: %d\n", bucketSum);
+	printf("Buckets sum: %d\n", bucketSum);*/
 
 
 	printf("Building bucket indexes \n");
