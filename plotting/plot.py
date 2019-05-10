@@ -13,7 +13,7 @@ dataset = sys.argv[3]
 runPlots = int(sys.argv[4])
 numQueries = int(sys.argv[5])
 
-kValues = [32,64,128,256,512,1024]
+kValues = [32,128,1024]
 tqSizes = [2,4,8,16,32,64,128]
 
 def readData(fileName):
@@ -84,22 +84,24 @@ def plotDistanceRatioVsScanTime(ax, dataK, k, tqSize):
     ax.legend()
 
 
-def buildLshSeries(ax, data, implementation, bucketImplementation, x, y, label):
+def buildLshSeries(ax, data, implementation, bucketImplementation, x, y, label, markerType):
     mask = (data["implementation"]==implementation) & (data["keyImplementation"]==bucketImplementation)
-    ax.plot(data[mask][x],data[mask][y],'o', label=label)
+    ax.semilogy(data[mask][x],data[mask][y],markerType, label=label)
 
-def plotLshAlgorithmsRecallVsScanTime(ax, dataK, k, tqSize):
-    buildLshSeries(ax, dataK, 2, 3, "recall", "scanTime", "SIMHASH - scan")
-    buildLshSeries(ax, dataK, 3, 3, "recall", "scanTime", "SIMHASH - SIMHASH")
-    buildLshSeries(ax, dataK, 5, 3, "recall", "scanTime", "SIMHASH - 1BITMINHASH")
+def plotLshAlgorithmsRecallVsScanTime(ax, dataK, dataMemK, k, tqSize):
+    buildLshSeries(ax, dataK, 2, 3, "recall", "scanTime", "SIMHASH - scan", "o")
+    buildLshSeries(ax, dataK, 3, 3, "recall", "scanTime", "SIMHASH - SIMHASH", "o")
+    buildLshSeries(ax, dataK, 5, 3, "recall", "scanTime", "SIMHASH - 1BITMINHASH", "o")
 
-    buildLshSeries(ax, dataK, 2, 5, "recall", "scanTime", "1BITMINHASH - scan")
-    buildLshSeries(ax, dataK, 3, 5, "recall", "scanTime", "1BITMINHASH - SIMHASH")
-    buildLshSeries(ax, dataK, 5, 5, "recall", "scanTime", "1BITMINHASH - 1BitMINHASH")    
+    buildLshSeries(ax, dataK, 2, 5, "recall", "scanTime", "1BITMINHASH - scan", "^")
+    buildLshSeries(ax, dataK, 3, 5, "recall", "scanTime", "1BITMINHASH - SIMHASH", "^")
+    buildLshSeries(ax, dataK, 5, 5, "recall", "scanTime", "1BITMINHASH - 1BitMINHASH", "^")    
 
-    buildLshSeries(ax, dataK, 2, 7, "recall", "scanTime", "CROSSPOLY - scan")
-    buildLshSeries(ax, dataK, 3, 7, "recall", "scanTime", "CROSSPOLY - SIMHASH")
-    buildLshSeries(ax, dataK, 5, 7, "recall", "scanTime", "CROSSPOLY - 1BitMINHASH") 
+    buildLshSeries(ax, dataK, 2, 7, "recall", "scanTime", "CROSSPOLY - scan", "s")
+    buildLshSeries(ax, dataK, 3, 7, "recall", "scanTime", "CROSSPOLY - SIMHASH", "s")
+    buildLshSeries(ax, dataK, 5, 7, "recall", "scanTime", "CROSSPOLY - 1BitMINHASH", "s") 
+
+    ax.plot(dataMemK[dataMemK["implementation"]==2]["recall"], dataMemK[dataMemK["implementation"]==2]["scanTime"], "X", label="MEMOP")
 
     ax.set_xlabel("Recall")
     ax.set_ylabel("Queries per second")
@@ -107,14 +109,53 @@ def plotLshAlgorithmsRecallVsScanTime(ax, dataK, k, tqSize):
     #ax.set_yticks(yMajorTicks)
     ax.legend()
 
+
+def plotLshbucketBitsVsRecall(ax, dataK, dataMemK, k, tqSize, numTables):
+    buildLshSeries(ax, dataK, 2, 3, "bucketKeyBits","recall", "SIMHASH - scan", "o")
+    buildLshSeries(ax, dataK, 3, 3, "bucketKeyBits","recall", "SIMHASH - SIMHASH", "o")
+    buildLshSeries(ax, dataK, 5, 3, "bucketKeyBits","recall", "SIMHASH - 1BITMINHASH", "o")
+
+    buildLshSeries(ax, dataK, 2, 5, "bucketKeyBits","recall", "1BITMINHASH - scan", "^")
+    buildLshSeries(ax, dataK, 3, 5, "bucketKeyBits","recall", "1BITMINHASH - SIMHASH", "^")
+    buildLshSeries(ax, dataK, 5, 5, "bucketKeyBits","recall", "1BITMINHASH - 1BitMINHASH", "^")    
+
+    buildLshSeries(ax, dataK, 2, 7, "bucketKeyBits","recall", "CROSSPOLY - scan", "s")
+    buildLshSeries(ax, dataK, 3, 7, "bucketKeyBits","recall", "CROSSPOLY - SIMHASH", "s")
+    buildLshSeries(ax, dataK, 5, 7, "bucketKeyBits","recall", "CROSSPOLY - 1BitMINHASH", "s")
+
+    buildLshSeries(ax, dataK, 2, 4, "bucketKeyBits","recall", "MINHASH - scan", "D")
+    buildLshSeries(ax, dataK, 3, 4, "bucketKeyBits","recall", "MINHASH - SIMHASH", "D")
+    buildLshSeries(ax, dataK, 5, 4, "bucketKeyBits","recall", "MINHASH - 1BitMINHASH", "D")
+
+    ax.set_xlabel("Bucket Key Bits")
+    ax.set_ylabel("Recall")
+    ax.set_title(f"{dataset} LSH results k={k} ThreadQueueSize={tqSize} Tables={numTables}")
+    #ax.set_yticks(yMajorTicks)
+    ax.legend()
+
 def runPlotLshRecallVsTime(data, lshData):
     for tqSize in tqSizes:
-        dataTQ = lshData[lshData["THREAD_QUEUE_SIZE"]==tqSize]
+        lshMask = (lshData["THREAD_QUEUE_SIZE"]==tqSize) & (lshData["tables"]==2) & ((lshData["sketchDim"]==512) | (lshData["implementation"]==2))
+        lshDataTQ = lshData[lshMask]
+        dataTq = data[data["THREAD_QUEUE_SIZE"]==tqSize]
         for currentK in kValues:
             fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
-            plotLshAlgorithmsRecallVsScanTime(axes, dataTQ[dataTQ["k"]==currentK], currentK, tqSize)
-            plt.savefig(f"plots/{dataset}lshrecallvstime{currentK}k_{tqSize}tq.png")
+            plotLshAlgorithmsRecallVsScanTime(axes, lshDataTQ[lshDataTQ["k"]==currentK], dataTq[dataTq["k"]==currentK] ,currentK, tqSize)
+            plt.savefig(f"plots/{dataset}lshrecallvstime{currentK}k_{tqSize}tq_{512}sketchDim.png")
             plt.close(fig)
+        
+
+def runPlotLshBucketBitsVsRecall(data, lshData):
+    for numTables in [2, 4, 6, 8, 10]:
+        for tqSize in tqSizes:
+            lshMask = (lshData["THREAD_QUEUE_SIZE"]==tqSize) & (lshData["tables"]==numTables) & ((lshData["sketchDim"]==512) | (lshData["implementation"]==2)) 
+            lshDataTQ = lshData[lshMask]
+            dataTq = data[data["THREAD_QUEUE_SIZE"]==tqSize]
+            for currentK in kValues:
+                fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
+                plotLshbucketBitsVsRecall(axes, lshDataTQ[lshDataTQ["k"]==currentK], dataTq[dataTq["k"]==currentK] ,currentK, tqSize, numTables)
+                plt.savefig(f"plots/{dataset}lshbucketbitsvsrecall{currentK}k_{tqSize}tq_{numTables}tables.png")
+                plt.close(fig)
 
 def runPlotRecallVsTimeData(data, lshData):     
     for tqSize in tqSizes:
@@ -165,6 +206,49 @@ def runAll(data, lshData):
     runPlotRecallVsBits(data, lshData)
     runPlotDistanceRatioVsTime(data, lshData)
     runPlotLshRecallVsTime(data, lshData)
+    runPlotLshBucketBitsVsRecall(data, lshData)
+
+
+def lshDataClean(lshData):
+    mask = (lshData["scanTime"] < 20000)
+    lshData = lshData[mask]
+    return lshData
+
+
+def transformBucketKeyBitsColumn(data):
+    mask = (data["keyImplementation"]==4)
+    newData = data[mask]
+    newData["bucketKeyBits"] = newData["bucketKeyBits"]*8
+
+    for bimp in [3,5,7]:
+        mask = (data["keyImplementation"]==bimp)
+        toAppend = data[mask]
+        toAppend["bucketKeyBits"] = toAppend["bucketKeyBits"]*16
+        newData = np.append(newData, toAppend, 0)
+
+    #newData.astype(data.dtype)
+
+    return newData
+    
+def transformSketchDimColumn(data):
+    mask = (data["implementation"]==3)
+    newData = data[mask]
+    newData["sketchDim"] = newData["sketchDim"]*32
+
+    mask = (data["implementation"]==5)
+    toAppend = data[mask]
+    toAppend["sketchDim"] = toAppend["sketchDim"]*32
+
+    newData = np.append(newData, toAppend, 0)
+
+    mask = (data["implementation"]==2)
+    toAppend = data[mask]
+    newData = np.append(newData, toAppend, 0)
+    
+
+    #newData.astype(data.dtype)
+
+    return newData
 
 
 # Main 
@@ -173,12 +257,21 @@ sketchedData = readData(sketchFileName)
 lshDataFile = readData(lshFileName)
 
 
+lshDataFile = transformBucketKeyBitsColumn(lshDataFile)
+lshDataFile = transformSketchDimColumn(lshDataFile)
+
+print(lshDataFile)
+
+#lshDataFile = lshDataClean(lshDataFile)
+
+
 switcher = {
     0: runPlotBufVsSort,
     1: runPlotRecallVsTimeData,
     2: runPlotRecallVsBits,
     3: runPlotDistanceRatioVsTime,
-    4: runPlotLshRecallVsTime
+    4: runPlotLshRecallVsTime,
+    5: runPlotLshBucketBitsVsRecall
 }
 
 print(f"Running {runPlots}")
