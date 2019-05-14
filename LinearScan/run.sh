@@ -18,7 +18,7 @@ run_program(){
     keysImplementation=$8
     withSketchedData=$9
 
-    echo "Run with ../datasets/${dataset}_data.txt ../datasets/${dataset}_queries.txt ../datasets/${dataset}_${distanceFunc}_validation1024k.txt $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $runWithSketchedData $resultFile"
+    echo "Run with ../datasets/${dataset}_data.txt ../datasets/${dataset}_queries.txt ../datasets/${dataset}_${distanceFunc}_validation1024k.txt $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile"
     ./knn "../datasets/${dataset}_data.txt" "../datasets/${dataset}_queries.txt" "../datasets/${dataset}_${distanceFunc}_validation1024k.txt" $validate $writeResults $k $implementation $sketchDim $distanceFunc $framework $bucketKeyBits $tables $keysImplementation $withSketchedData $resultFile
     return
 }
@@ -47,7 +47,7 @@ change_constants(){
 run_memOptimized(){
     queueSize=$1
     maxK=$((($queueSize*32)/2))
-    for ((k=32; k<=32; k*=2))
+    for ((k=32; k<=1024; k*=2))
     do
         if [ $k -gt $maxK ]
         then
@@ -64,11 +64,11 @@ run_sketches(){
 
     distanceFunc=1
     # Run simhash and one bit min hash
-    for implementation in 3
+    for implementation in 3 5
     do
-        for sketchDim in {16..16..2}
+        for sketchDim in {16..32..2}
         do
-            for ((k=32; k<=32; k*=2))
+            for k in 32 128 1024
             do
                 if [ $k -gt $maxK ]
                 then
@@ -82,9 +82,9 @@ run_sketches(){
 
     distanceFunc=2
     # Run minhash
-    for sketchDim in {64..64..8}
+    for sketchDim in {64..128..8}
     do
-        for ((k=32; k<=32; k*=2))
+        for k in 32 128 1024
         do
             if [ $k -gt $maxK ]
             then
@@ -96,43 +96,31 @@ run_sketches(){
 
     # Run Jonson lindenstrauss
     distanceFunc=3
-    for sketchDim in {10..10..5}
-    do
-        for ((k=32; k<=32; k*=2))
-        do
-            if [ $k -gt $maxK ]
-            then
-                break
-            fi
-            run_program 6 $k $distanceFunc $sketchDim 0 0 0 0 0
-        done
-    done
+    #for sketchDim in {10..25..5}
+    #do
+    #    for ((k=32; k<=1024; k*=2))
+    #    do
+    #        if [ $k -gt $maxK ]
+    #        then
+    #            break
+    #        fi
+    #        run_program 6 $k $distanceFunc $sketchDim 0 0 0 0 0
+    #    done
+    #done
 } 
 
 run_lsh(){
     queueSize=$1
     maxK=$((($queueSize*32)/2))
+    sketchDim=16    
 
-    for numTables in {2..10..2}
+    for numTables in {2..20..2}
     do
-        for bucketKeyBits in 4 8 16
+        for bucketKeyBits in 16
         do
             for bucketKeyImplementation in 3 4 5
             do
-                for sketchDim in {10..16..2}
-                do
-                    for ((k=32; k<=1024; k*=2))
-                    do
-                        if [ $k -gt $maxK ]
-                        then
-                            break
-                        fi    
-			run_program 3 $k 1 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 1
-			run_program 5 $k 2 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 1
-                    done
-                done
-
-                for ((k=32; k<=1024; k*=2))
+                for k in 32
                 do
                     if [ $k -gt $maxK ]
                     then
@@ -140,31 +128,38 @@ run_lsh(){
                     fi
 		    if [ $bucketKeyImplementation -eq 3 ]
 		    then 
-			run_program 2 $k 1 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 0
-		    else 
-			run_program 2 $k 2 $sketchDim 1 $bucketKeyBits $numTables $bucketKeyImplementation 0
-		    fi	
+			run_program 2 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 0
+			run_program 3 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 1
+
+		    elif [ $bucketKeyImplementation -eq 4 ]
+		    then 
+			run_program 2 $k 2 $sketchDim 1 8 $numTables $bucketKeyImplementation 0
+			run_program 5 $k 2 $sketchDim 1 8 $numTables $bucketKeyImplementation 1
+		    else		 
+			run_program 2 $k 2 $sketchDim 1 16 $numTables $bucketKeyImplementation 0
+		        run_program 5 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 1
+       		    fi	
                 done
             done
         done
-	for sketchDim in {10..16..2}
+	for sketchDim in 16
 	do 
-	    for ((k=32; k<=1024; k*=2))
+	    for k in 32
 	    do
 		if [ $k -gt $maxK ]
 		then
 		    break
 		fi
 		run_program 3 $k 1 $sketchDim 1 6 $numTables 7 1
-		run_program 5 $k 2 $sketchDim 1 6 $numTables 7 1
-		run_program 2 $k 1 $sketchDim 1 6 $numTables 7 1
+		#run_program 5 $k 2 $sketchDim 1 6 $numTables 7 1
+		run_program 2 $k 1 0 1 6 $numTables 7 0
 
 	    done
 	done
     done
 }
 
-for ((queueSize=2; queueSize <= 128; queueSize*=2))
+for queueSize in 8 32 128
 do
     #Change queueSize 
     #Change to buffer
@@ -172,7 +167,8 @@ do
     #Compile
     compile_program
     #Run
+    echo "TQ: ${queueSize}"
     #run_memOptimized $queueSize
-    #run_sketches $queueSize
+    run_sketches $queueSize
     run_lsh $queueSize
 done
