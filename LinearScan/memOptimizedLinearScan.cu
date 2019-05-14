@@ -148,7 +148,11 @@ Result runMemOptimizedLinearScan(int k, int d, int N_query, int N_data, float* d
 
 	if (distanceFunc == 2) {
 		printf("Starting preprocess \n");
-		int* dev_minValues = mallocArray<int>(nullptr, d);
+		int* minValues = (int*)malloc(d * sizeof(int));
+		for (int i = 0; i < d; i++) {
+			minValues[i] = 0;
+		}
+		int* dev_minValues = mallocArray<int>(minValues, d, true);
 		preprocess << <1, numberOfThreads >> > (dev_query_points, dev_data_points, N_query, N_data, d, dev_minValues);
 		waitForKernel();
 

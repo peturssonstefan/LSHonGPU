@@ -367,7 +367,11 @@ namespace weightedMinHash {
 		bool* dev_randomBitMap = generateRandomBoolVectors(charSize);
 
 		int* m_bounds = (int*)malloc(d * sizeof(int));
-		int* dev_m_bounds = mallocArray(m_bounds, d);
+		for (int i = 0; i < d; i++) {
+			m_bounds[i] = 0; 
+		}
+
+		int* dev_m_bounds = mallocArray(m_bounds, d, true);
 
 		int* m_indexMapSizeArr = (int*)malloc(sizeof(int));
 		int* dev_m_IndexMapSizeArr = mallocArray(m_indexMapSizeArr, 1);
