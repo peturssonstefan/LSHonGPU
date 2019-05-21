@@ -30,11 +30,17 @@ pFar = angularProbability(r2)
 
 print(f"pClose={pClose} pFar={pFar}")
 
+xMajorTicks = np.arange(0,numOfBits+1, 10)
+
 plt.plot(numberOfOnes, getBinomialDistribution(numOfBits, pClose, numberOfOnes), "-", label="Close Points")
 plt.plot(numberOfOnes, getBinomialDistribution(numOfBits, pFar, numberOfOnes), "-", label="Far Points")
-plt.xlabel("# number of bits set to 1")
-plt.ylabel("Probabilty of # of bits set to 1")
-plt.title(f"Binomial graph r={r1} c={c}")
+plt.xlabel("Number of bits set to 1")
+plt.ylabel("Probabilty for given amount of bits set to 1")
+plt.title(f"Binomial distribution for Simhash")
+
+plt.xticks(xMajorTicks)
+
 plt.legend()
 
-plt.show()
+
+plt.savefig(f"binomial_bits_{numOfBits}_r1_{r1}c_{c}.png")
