@@ -47,7 +47,7 @@ change_constants(){
 run_memOptimized(){
     queueSize=$1
     maxK=$((($queueSize*32)/2))
-    for ((k=32; k<=1024; k*=2))
+    for k in 1024
     do
         if [ $k -gt $maxK ]
         then
@@ -62,13 +62,13 @@ run_sketches(){
     queueSize=$1
     maxK=$((($queueSize*32)/2))
 
-    distanceFunc=1
+    distanceFunc=1 #change back when running with simhash again
     # Run simhash and one bit min hash
-    for implementation in 3 5
+    for implementation in 3 
     do
-        for sketchDim in {16..32..2}
+        for sketchDim in {4..32..4}
         do
-            for k in 32 128 1024
+            for k in 32
             do
                 if [ $k -gt $maxK ]
                 then
@@ -82,17 +82,17 @@ run_sketches(){
 
     distanceFunc=2
     # Run minhash
-    for sketchDim in {64..128..8}
-    do
-        for k in 32 128 1024
-        do
-            if [ $k -gt $maxK ]
-            then
-                break
-            fi
-            run_program 4 $k $distanceFunc $sketchDim 0 0 0 0 0
-        done
-    done
+    #for sketchDim in {64..128..8}
+    #do
+    #    for k in 1024
+    #    do
+    #        if [ $k -gt $maxK ]
+    #        then
+    #            break
+    #        fi
+    #        run_program 4 $k $distanceFunc $sketchDim 0 0 0 0 0
+    #    done
+    #done
 
     # Run Jonson lindenstrauss
     distanceFunc=3
@@ -114,52 +114,57 @@ run_lsh(){
     maxK=$((($queueSize*32)/2))
     sketchDim=16    
 
-    for numTables in {2..20..2}
+    for numTables in {35..40..5}
     do
-        for bucketKeyBits in 16
-        do
-            for bucketKeyImplementation in 3 4 5
-            do
-                for k in 32
-                do
-                    if [ $k -gt $maxK ]
-                    then
-                        break
-                    fi
-		    if [ $bucketKeyImplementation -eq 3 ]
-		    then 
-			run_program 2 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 0
-			run_program 3 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 1
-
-		    elif [ $bucketKeyImplementation -eq 4 ]
-		    then 
-			run_program 2 $k 2 $sketchDim 1 8 $numTables $bucketKeyImplementation 0
-			run_program 5 $k 2 $sketchDim 1 8 $numTables $bucketKeyImplementation 1
-		    else		 
-			run_program 2 $k 2 $sketchDim 1 16 $numTables $bucketKeyImplementation 0
-		        run_program 5 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 1
-       		    fi	
-                done
-            done
-        done
-	for sketchDim in 16
+       # for bucketKeyBits in 16
+       # do
+       #     for bucketKeyImplementation in 3 4 5
+       #     do
+       #         for k in 32
+       #         do
+       #             if [ $k -gt $maxK ]
+       #             then
+       #                 break
+       #             fi
+       #		    if [ $bucketKeyImplementation -eq 3 ]
+       #	    then 
+       #		run_program 2 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 0
+       #		run_program 3 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 1
+       #
+       #	    elif [ $bucketKeyImplementation -eq 4 ]
+       #	    then 
+			#run_program 2 $k 2 $sketchDim 1 8 $numTables $bucketKeyImplementation 0
+			#run_program 5 $k 2 $sketchDim 1 8 $numTables $bucketKeyImplementation 1
+		    #else		 
+		#	run_program 2 $k 2 $sketchDim 1 16 $numTables $bucketKeyImplementation 0
+		#        run_program 5 $k 1 $sketchDim 1 16 $numTables $bucketKeyImplementation 1
+       		#    fi	
+               # done
+            #done
+        #done
+	for sketchDim in {32..32..4} 
 	do 
-	    for k in 32
+	    for k in 32 
 	    do
 		if [ $k -gt $maxK ]
 		then
 		    break
 		fi
-		run_program 3 $k 1 $sketchDim 1 6 $numTables 7 1
-		#run_program 5 $k 2 $sketchDim 1 6 $numTables 7 1
-		run_program 2 $k 1 0 1 6 $numTables 7 0
-
+		for bucketKeyBits in 10
+		do
+		     run_program 3 $k 1 $sketchDim 1 $bucketKeyBits $numTables 3 1
+		     #run_program 3 $k 1 $sketchDim 1 11 $numTables 7 1
+		     #run_program 5 $k 2 $sketchDim 1 11 $numTables 5 1
+		     #run_program 5 $k 2 $sketchDim 1 8 $numTables 4 1
+		done	
 	    done
 	done
+	#run_program 2 32 2 0 1 8 $numTables 4 0
+	#run_program 5 32 2 32 1 8 $numTables 4 1
     done
 }
 
-for queueSize in 8 32 128
+for queueSize in 128
 do
     #Change queueSize 
     #Change to buffer
@@ -169,6 +174,6 @@ do
     #Run
     echo "TQ: ${queueSize}"
     #run_memOptimized $queueSize
-    run_sketches $queueSize
+    #run_sketches $queueSize
     run_lsh $queueSize
 done

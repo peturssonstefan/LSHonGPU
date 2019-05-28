@@ -413,11 +413,13 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	
 	printf("Running scan \n");
 	before = clock(); 
-	cudaMemGetInfo(&free_byte, &total_byte);
-	double free_byte_double = (double)free_byte;
-	double totals_byte_double = (double)total_byte;
-	double used_bytes = totals_byte_double - free_byte_double;
-	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", ((free_byte_double / 1024) / 1024), ((totals_byte_double / 1024) / 1024), ((used_bytes / 1024) / 1024));
+	size_t free_byte;
+	size_t total_byte;
+	cudaMemGetInfo(&free_byte,&total_byte);
+	double free_byte_double = (double)free_byte; 
+	double total_byte_double = (double)total_byte; 
+	double used_bytes = total_byte_double - free_byte_double; 
+	printf("Free: %f, Total: %f, used %f \n", (free_byte_double/1048576), (total_byte_double / 1048576), (used_bytes/1048576));	
 	scan << <numberOfBlocks * 2, 512>> > (params, lshParams, dev_hashKeys, dev_buckets, dev_resultsDuplicates);
 	waitForKernel(); 
 	time_lapsed = clock() - before;
