@@ -128,6 +128,8 @@ void distributePointsToBuckets(LaunchDTO<T> params, LshLaunchDTO<K> lshParams, i
 	int threadId = (blockIdx.x * gridDim.x) + threadIdx.x;
 	int warpId = threadId / WARPSIZE;
 	int lane = threadId % WARPSIZE;
+	if (warpId >= lshParams.tables) return; 
+
 	for (int i = lane; i < params.N_data; i+=WARPSIZE) {
 		int hash = lshParams.dataKeys[i * lshParams.tables + warpId];
 		int bucketIdx = atomicAdd(&bucketCounters[warpId * lshParams.tableSize + hash], 1);
@@ -286,7 +288,10 @@ void runDistributePointsTobuckets(LaunchDTO<T> params, LshLaunchDTO<K> lshParams
 	}
 	int* dev_bucketCounters = mallocArray(bucketsCounters, lshParams.tableSize * lshParams.tables, true);
 
-	distributePointsToBuckets << <1, lshParams.tables * WARPSIZE >> > (params, lshParams, dev_hashKeys, dev_bucketCounters, dev_buckets);
+	int numberOfBlocks = calculateBlocksLocal(lshParams.tables);
+	int numberOfThreads = calculateThreadsLocal(lshParams.tables);
+
+	distributePointsToBuckets << <numberOfBlocks, numberOfThreads >> > (params, lshParams, dev_hashKeys, dev_bucketCounters, dev_buckets);
 	waitForKernel();
 
 	freeDeviceArray(dev_bucketCounters);
@@ -408,6 +413,11 @@ Result runLsh(LaunchDTO<T> params, LshLaunchDTO<K> lshParams) {
 	
 	printf("Running scan \n");
 	before = clock(); 
+	cudaMemGetInfo(&free_byte, &total_byte);
+	double free_byte_double = (double)free_byte;
+	double totals_byte_double = (double)total_byte;
+	double used_bytes = totals_byte_double - free_byte_double;
+	printf("Free bytes: %f, total_bytes: %f, used bytes %f \n", ((free_byte_double / 1024) / 1024), ((totals_byte_double / 1024) / 1024), ((used_bytes / 1024) / 1024));
 	scan << <numberOfBlocks * 2, 512>> > (params, lshParams, dev_hashKeys, dev_buckets, dev_resultsDuplicates);
 	waitForKernel(); 
 	time_lapsed = clock() - before;
