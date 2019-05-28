@@ -21,13 +21,14 @@ def readData(fileName):
     namesArr = ["implementation","keyImplementation","sketchDim","k","THREAD_QUEUE_SIZE","bucketKeyBits","tables","WITH_TQ_OR_BUFFER","preprocessTime","constructionTime","scanTime","recall","avgDistance"]
     data = np.genfromtxt(fileName, dtype=None, names=namesArr, delimiter=",")
     data = data[data["scanTime"].argsort()]
+    data = data[data["recall"].argsort()]
     # print(data)
 
     # transform data scantime to queries per second
     data["scanTime"] = numQueries/(data["scanTime"]/1000)     
     return data
 
-yMajorTicks = np.arange(0,1.1,0.2)
+MajorTicks = np.arange(0,1.01,0.1)
 
 
 def plotBufferVsSort(ax, dataSort, dataBuffer, k):
@@ -43,72 +44,132 @@ def plotBufferVsSort(ax, dataSort, dataBuffer, k):
     ax.legend()
 
 
-def plotRecallVsTime(ax, dataK, k, tqSize):
-    ax.plot(dataK[dataK["implementation"]==2]["recall"],dataK[dataK["implementation"]==2]["scanTime"],'o', label="MEMOP")
-    ax.plot(dataK[dataK["implementation"]==3]["recall"],dataK[dataK["implementation"]==3]["scanTime"],'o', label="SIMHASH")
-    ax.plot(dataK[dataK["implementation"]==4]["recall"],dataK[dataK["implementation"]==4]["scanTime"],'o', label="MINHASH")
-    ax.plot(dataK[dataK["implementation"]==5]["recall"],dataK[dataK["implementation"]==5]["scanTime"],'o', label="MINHASH1BIT")
-    ax.plot(dataK[dataK["implementation"]==6]["recall"],dataK[dataK["implementation"]==6]["scanTime"],'o', label="JL")
+def plotRecallVsTime(ax, dataK, k):
+    tqSizesLocal = [8,32,128]
+
+    if k == 1024:
+        tqSizesLocal = [64,128]
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.loglog(dataTq[dataTq["implementation"]==2]["recall"],dataTq[dataTq["implementation"]==2]["scanTime"],':', label=f"MEMOP {tqSize}")
     
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.loglog(dataTq[dataTq["implementation"]==3]["recall"],dataTq[dataTq["implementation"]==3]["scanTime"],'o', label=f"SIMHASH {tqSize}", linestyle="-")
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.loglog(dataTq[dataTq["implementation"]==4]["recall"],dataTq[dataTq["implementation"]==4]["scanTime"],'D', label=f"MINHASH {tqSize}", linestyle="-")
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.loglog(dataTq[dataTq["implementation"]==5]["recall"],dataTq[dataTq["implementation"]==5]["scanTime"],"^", label=f"MINHASH1BIT {tqSize}", linestyle="-")
+        
     ax.set_xlabel("Recall")
     ax.set_ylabel("Queries per second")
-    ax.set_title(f"{dataset} results k={k} ThreadQueueSize={tqSize}")
-    #ax.set_yticks(yMajorTicks)
-    ax.legend()
+    ax.set_title(f"{dataset} results k={k}")
+    #ax.set_yticks(MajorTicks)
+    #ax.set_xticks(MajorTicks)
+    # Put a legend to the right of the current axis
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 
-def plotRecallVsBits(ax, dataK, k, tqSize):
-    ax.plot(dataK[dataK["implementation"]==3]["sketchDim"]*32, dataK[dataK["implementation"]==3]["recall"],'o', label="SIMHASH")
-    ax.plot(dataK[dataK["implementation"]==4]["sketchDim"]*8, dataK[dataK["implementation"]==4]["recall"],'o', label="MINHASH")
-    ax.plot(dataK[dataK["implementation"]==5]["sketchDim"]*32, dataK[dataK["implementation"]==5]["recall"],'o', label="MINHASH1BIT")
-    ax.plot(dataK[dataK["implementation"]==6]["sketchDim"], dataK[dataK["implementation"]==6]["recall"],'o', label="JL")
+def plotRecallVsBits(ax, dataK, k):
+    tqSizesLocal = [8,32,128]
 
+    if k == 1024:
+        tqSizesLocal = [64,128]
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.plot(dataTq[dataTq["implementation"]==3]["sketchDim"]*32,dataTq[dataTq["implementation"]==3]["recall"],'o', label=f"SIMHASH {tqSize}", linestyle="-")
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.plot(dataTq[dataTq["implementation"]==4]["sketchDim"]*8,dataTq[dataTq["implementation"]==4]["recall"],'D', label=f"MINHASH {tqSize}", linestyle="-")
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.plot(dataTq[dataTq["implementation"]==5]["sketchDim"]*32,dataTq[dataTq["implementation"]==5]["recall"],"^", label=f"MINHASH1BIT {tqSize}", linestyle="-")
+        
     ax.set_ylabel("Recall")
     ax.set_xlabel("Number of bits")
-    ax.set_title(f"{dataset} sketch results k={k} ThreadQueueSize={tqSize}")
-    ax.set_yticks(yMajorTicks)
-    ax.legend()
+    ax.set_title(f"{dataset} sketch results k={k}")
+    ax.set_yticks(MajorTicks)
+    # Put a legend to the right of the current axis
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 
-def plotDistanceRatioVsScanTime(ax, dataK, k, tqSize):
-    ax.plot(dataK[dataK["implementation"]==2]["avgDistance"],dataK[dataK["implementation"]==2]["scanTime"],'o', label="MEMOP")
-    ax.plot(dataK[dataK["implementation"]==3]["avgDistance"],dataK[dataK["implementation"]==3]["scanTime"],'o', label="SIMHASH")
-    ax.plot(dataK[dataK["implementation"]==4]["avgDistance"],dataK[dataK["implementation"]==4]["scanTime"],'o', label="MINHASH")
-    ax.plot(dataK[dataK["implementation"]==5]["avgDistance"],dataK[dataK["implementation"]==5]["scanTime"],'o', label="MINHASH1BIT")
-    ax.plot(dataK[dataK["implementation"]==6]["avgDistance"],dataK[dataK["implementation"]==6]["scanTime"],'o', label="JL")
+def plotDistanceRatioVsScanTime(ax, dataK, k):
+    
+    tqSizesLocal = [8,32,128]
+
+    if k == 1024:
+        tqSizesLocal = [64,128]
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.semilogy(dataTq[dataTq["implementation"]==2]["avgDistance"],dataTq[dataTq["implementation"]==2]["scanTime"],'X', label=f"MEMOP {tqSize}")
+    
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.semilogy(dataTq[dataTq["implementation"]==3]["avgDistance"],dataTq[dataTq["implementation"]==3]["scanTime"],'o', label=f"SIMHASH {tqSize}", linestyle="-")
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.semilogy(dataTq[dataTq["implementation"]==4]["avgDistance"],dataTq[dataTq["implementation"]==4]["scanTime"],'D', label=f"MINHASH {tqSize}", linestyle="-")
+
+    for tqSize in tqSizesLocal:
+        dataTq = dataK[dataK["THREAD_QUEUE_SIZE"]==tqSize]
+        ax.semilogy(dataTq[dataTq["implementation"]==5]["avgDistance"],dataTq[dataTq["implementation"]==5]["scanTime"],"^", label=f"MINHASH1BIT {tqSize}", linestyle="-")
+    
+    #ax.plot(dataK[dataK["implementation"]==6]["avgDistance"],dataK[dataK["implementation"]==6]["scanTime"],'o', label="JL")
     
     ax.set_xlabel("Distance ratio")
     ax.set_ylabel("Queries per second")
-    ax.set_title(f"{dataset} results k={k} ThreadQueueSize={tqSize}")
-    #ax.set_yticks(yMajorTicks)
-    ax.legend()
+    ax.set_title(f"{dataset} results k={k}")
 
+    # Put a legend to the right of the current axis
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
-def buildLshSeries(ax, data, implementation, bucketImplementation, x, y, label, markerType):
-    mask = (data["implementation"]==implementation) & (data["keyImplementation"]==bucketImplementation)
-    ax.semilogy(data[mask][x],data[mask][y],markerType, label=label)
+def buildLshSeries(ax, data, implementation, bucketImplementation, tables, x, y, label, markerType):
+    mask = (data["implementation"]==implementation) & (data["keyImplementation"]==bucketImplementation) & (data["tables"]==tables)
+    ax.loglog(data[mask][x],data[mask][y],markerType, markersize=6, label=label)
 
 def plotLshAlgorithmsRecallVsScanTime(ax, dataK, dataMemK, k, tqSize):
-    buildLshSeries(ax, dataK, 2, 3, "recall", "scanTime", "SIMHASH - scan", "o")
-    buildLshSeries(ax, dataK, 3, 3, "recall", "scanTime", "SIMHASH - SIMHASH", "o")
-    buildLshSeries(ax, dataK, 5, 3, "recall", "scanTime", "SIMHASH - 1BITMINHASH", "o")
+    #buildLshSeries(ax, dataK, 2, 3, "recall", "scanTime", "SIMHASH - scan", "o")
+    buildLshSeries(ax, dataK, 3, 3, 2, "recall", "scanTime", "SIMHASH 2 Tables", "o-")
+    buildLshSeries(ax, dataK, 3, 3, 4, "recall", "scanTime", "SIMHASH 4 Tables", "o-")
+    #buildLshSeries(ax, dataK, 3, 3, 6, "recall", "scanTime", "SIMHASH 6 Tables", "o-")
+    buildLshSeries(ax, dataK, 3, 3, 8, "recall", "scanTime", "SIMHASH 8 Tables", "o-")
 
-    buildLshSeries(ax, dataK, 2, 5, "recall", "scanTime", "1BITMINHASH - scan", "^")
-    buildLshSeries(ax, dataK, 3, 5, "recall", "scanTime", "1BITMINHASH - SIMHASH", "^")
-    buildLshSeries(ax, dataK, 5, 5, "recall", "scanTime", "1BITMINHASH - 1BitMINHASH", "^")    
 
-    buildLshSeries(ax, dataK, 2, 7, "recall", "scanTime", "CROSSPOLY - scan", "s")
-    buildLshSeries(ax, dataK, 3, 7, "recall", "scanTime", "CROSSPOLY - SIMHASH", "s")
-    buildLshSeries(ax, dataK, 5, 7, "recall", "scanTime", "CROSSPOLY - 1BitMINHASH", "s") 
+    #buildLshSeries(ax, dataK, 2, 5, "recall", "scanTime", "1BITMINHASH - scan", "^")
+    #buildLshSeries(ax, dataK, 5, 5, "recall", "scanTime", "1BITMINHASH - 1BitMINHASH", "^")    
 
-    ax.plot(dataMemK[dataMemK["implementation"]==2]["recall"], dataMemK[dataMemK["implementation"]==2]["scanTime"], "X", label="MEMOP")
+    #buildLshSeries(ax, dataK, 2, 7, "recall", "scanTime", "CROSSPOLY - scan", "s")
+    buildLshSeries(ax, dataK, 3, 7, 2, "recall", "scanTime", "CROSSPOLY 2 Tables", "s-")
+    buildLshSeries(ax, dataK, 3, 7, 4, "recall", "scanTime", "CROSSPOLY 4 Tables", "s-")
+   # buildLshSeries(ax, dataK, 3, 7, 6, "recall", "scanTime", "CROSSPOLY 6 Tables", "s-")
+    buildLshSeries(ax, dataK, 3, 7, 8, "recall", "scanTime", "CROSSPOLY 8 Tables", "s-")
+
+    #buildLshSeries(ax, dataK, 2, 4, "recall", "scanTime", "MINHASH - scan", "D")
+    #buildLshSeries(ax, dataK, 5, 4, "recall", "scanTime", "MINHASH - 1BitMINHASH", "D")
+
+    ax.plot(dataMemK[dataMemK["implementation"]==2]["recall"], dataMemK[dataMemK["implementation"]==2]["scanTime"], ":", label="Baseline Scan")
+    ax.plot(dataMemK[dataMemK["implementation"]==3]["recall"], dataMemK[dataMemK["implementation"]==3]["scanTime"], "o:", markersize=6, label="Simhash Scan")
 
     ax.set_xlabel("Recall")
     ax.set_ylabel("Queries per second")
     ax.set_title(f"{dataset} LSH results k={k} ThreadQueueSize={tqSize}")
-    #ax.set_yticks(yMajorTicks)
+    #ax.set_yticks(MajorTicks)
+    ax.set_xticks([0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+    #ax.set_xticks([])
+    ax.set_xticklabels(["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9", "1.0"])
+    ax.get_xaxis().set_major_formatter(matplotlib.ticker.NullFormatter())
+    #ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax.legend()
-
 
 def plotLshbucketBitsVsRecall(ax, dataK, dataMemK, k, tqSize, numTables):
     buildLshSeries(ax, dataK, 2, 3, "bucketKeyBits","recall", "SIMHASH - scan", "o")
@@ -130,12 +191,12 @@ def plotLshbucketBitsVsRecall(ax, dataK, dataMemK, k, tqSize, numTables):
     ax.set_xlabel("Bucket Key Bits")
     ax.set_ylabel("Recall")
     ax.set_title(f"{dataset} LSH results k={k} ThreadQueueSize={tqSize} Tables={numTables}")
-    #ax.set_yticks(yMajorTicks)
+    #ax.set_yticks(MajorTicks)
     ax.legend()
 
 def runPlotLshRecallVsTime(data, lshData):
     for tqSize in tqSizes:
-        lshMask = (lshData["THREAD_QUEUE_SIZE"]==tqSize) & (lshData["tables"]==2) & ((lshData["sketchDim"]==512) | (lshData["implementation"]==2))
+        lshMask = (lshData["THREAD_QUEUE_SIZE"]==tqSize) 
         lshDataTQ = lshData[lshMask]
         dataTq = data[data["THREAD_QUEUE_SIZE"]==tqSize]
         for currentK in kValues:
@@ -158,34 +219,29 @@ def runPlotLshBucketBitsVsRecall(data, lshData):
                 plt.close(fig)
 
 def runPlotRecallVsTimeData(data, lshData):     
-    for tqSize in tqSizes:
-        dataTQ = data[data["THREAD_QUEUE_SIZE"]==tqSize]
-        for currentK in kValues:
-            fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
-            plotRecallVsTime(axes, dataTQ[dataTQ["k"]==currentK], currentK, tqSize)
-            plt.savefig(f"plots/{dataset}recallvstime{currentK}k_{tqSize}tq.png")
-            plt.close(fig)
+    for currentK in kValues:
+        fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
+        plotRecallVsTime(axes, data[data["k"]==currentK], currentK)
+        plt.savefig(f"plots/{dataset}recallvstime{currentK}k.png")
+        plt.close(fig)
 
 
 def runPlotDistanceRatioVsTime(data, lshData):
-    for tqSize in tqSizes:
-        dataTQ = data[data["THREAD_QUEUE_SIZE"]==tqSize]
-        for currentK in kValues:
-            fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
-            plotDistanceRatioVsScanTime(axes, dataTQ[dataTQ["k"]==currentK], currentK, tqSize)
-            plt.savefig(f"plots/{dataset}distancevstime{currentK}k_{tqSize}tq.png")
-            plt.close(fig)
+    for currentK in kValues:
+        fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
+        plotDistanceRatioVsScanTime(axes, data[data["k"]==currentK], currentK)
+        plt.savefig(f"plots/{dataset}distancevstime{currentK}k.png")
+        plt.close(fig)
 
 def runPlotRecallVsBits(data, lshData):
     dataSort = data[data["sketchDim"].argsort()]
     
-    for tqSize in tqSizes:
-        dataTQ = dataSort[dataSort["THREAD_QUEUE_SIZE"]==tqSize]
-        for currentK in kValues:
-            fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
-            plotRecallVsBits(axes, dataTQ[dataTQ["k"]==currentK], currentK, tqSize)
-            plt.savefig(f"plots/{dataset}recallvsbits{currentK}k_{tqSize}tq.png")
-            plt.close(fig)
+    for currentK in kValues:
+        fig , axes = plt.subplots(nrows=1, ncols=1, constrained_layout=True)
+        plotRecallVsBits(axes, dataSort[dataSort["k"]==currentK], currentK)
+        plt.savefig(f"plots/{dataset}recallvsbits{currentK}k.png")
+        plt.close(fig)
+        
 
 def runPlotBufVsSort(data, lshData):
     dataSortTQ = data[data["THREAD_QUEUE_SIZE"].argsort()]
@@ -248,7 +304,7 @@ def transformSketchDimColumn(data):
 
     #newData.astype(data.dtype)
 
-    return newData
+    return newData 
 
 
 # Main 
