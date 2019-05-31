@@ -4,6 +4,7 @@ import matplotlib
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import NullFormatter
 
 matplotlib.style.use("seaborn")
 
@@ -170,18 +171,18 @@ def plotLshAlgorithmsRecallVsScanTime(ax, dataK, dataMemK, k, tqSize):
     # buildLshSeries(ax, dataK, 2, 3, "recall", "scanTime", "SIMHASH Scan Sift", "o-")
     # buildLshSeries(ax, dataK,1, 3, 3, "recall", "scanTime", "SIMHASH Sketched Glove", "D-")
     # buildLshSeries(ax, dataK,1, 2, 3, "recall", "scanTime", "SIMHASH Scan Glove", "^-")
-    #buildLshSeriesBasedOnTables(ax, dataK, 3, 3, 2, "recall", "scanTime", "SIMHASH 2 Tables", "o-")
+    buildLshSeriesBasedOnTables(ax, dataK, 3, 3, 2, "recall", "scanTime", "SIMHASH 2 Tables", "o-")
     buildLshSeriesBasedOnTables(ax, dataK, 3, 3, 4, "recall", "scanTime", "SIMHASH 4 Tables", "o-")
     buildLshSeriesBasedOnTables(ax, dataK, 3, 3, 8, "recall", "scanTime", "SIMHASH 8 Tables", "o-")
     #buildLshSeriesBasedOnTables(ax, dataK, 3, 3, 10, "recall", "scanTime", "SIMHASH 10Bits", "o-")
 
     #buildLshSeriesBasedOnTables(ax, dataK, 5, 4, 2, "recall", "scanTime", "MINHASH 2T", "D-")
-    buildLshSeriesBasedOnTables(ax, dataK, 5, 4, 4, "recall", "constructionTime", "MINHASH 4 Tables", "D-")
-    buildLshSeriesBasedOnTables(ax, dataK, 5, 4, 8, "recall", "constructionTime", "MINHASH 8 Tables", "D-")
+    # buildLshSeriesBasedOnTables(ax, dataK, 5, 4, 4, "recall", "constructionTime", "MINHASH 4 Tables", "D-")
+    # buildLshSeriesBasedOnTables(ax, dataK, 5, 4, 8, "recall", "constructionTime", "MINHASH 8 Tables", "D-")
 
    # buildLshSeriesBasedOnTables(ax, dataK, 5, 5, 2, "recall", "scanTime", "1-B. MINHASH 8T", ">-")
-    buildLshSeriesBasedOnTables(ax, dataK, 5, 5, 4, "recall", "constructionTime", "1-B. MINHASH 4 Tables", ">-")
-    buildLshSeriesBasedOnTables(ax, dataK, 5, 5, 8, "recall", "constructionTime", "1-B. MINHASH 8 Tables", ">-")
+    # buildLshSeriesBasedOnTables(ax, dataK, 5, 5, 4, "recall", "constructionTime", "1-B. MINHASH 4 Tables", ">-")
+    # buildLshSeriesBasedOnTables(ax, dataK, 5, 5, 8, "recall", "constructionTime", "1-B. MINHASH 8 Tables", ">-")
 
     # buildLshSeries(ax, dataK, 2, 5, "recall", "scanTime", "1BITMINHASH - scan", "^-")
     #buildLshSeries(ax, dataK, 5, 5, "recall", "scanTime", "1BITMINHASH - 1BitMINHASH", "^-")    
@@ -189,7 +190,7 @@ def plotLshAlgorithmsRecallVsScanTime(ax, dataK, dataMemK, k, tqSize):
     # buildLshSeries(ax, dataK, 2, 7, "recall", "scanTime", "CROSSPOLY - scan", "s-")
      #buildLshSeries(ax, dataK, 3, 7, "recall", "scanTime", "CROSSPOLY - SIMHASH", "s-")
 
-    #buildLshSeriesBasedOnTables(ax, dataK, 3, 7, 2, "recall", "scanTime", "CROSSPOLY 2 Tables", "s-")
+    buildLshSeriesBasedOnTables(ax, dataK, 3, 7, 2, "recall", "scanTime", "CROSSPOLY 2 Tables", "s-")
     buildLshSeriesBasedOnTables(ax, dataK, 3, 7, 4, "recall", "scanTime", "CROSSPOLY 4 Tables", "s-")
     buildLshSeriesBasedOnTables(ax, dataK, 3, 7, 8, "recall", "scanTime", "CROSSPOLY 8 Tables", "s-")
 
@@ -205,7 +206,12 @@ def plotLshAlgorithmsRecallVsScanTime(ax, dataK, dataMemK, k, tqSize):
     ax.set_ylabel("Queries per second")
     ax.set_title(f"Gist LSH results for k = {k}, ThreadQueueSize = {tqSize}")
     #ax.set_xticks([0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.001])
-    ax.set_xticks([])
+
+    ax.xaxis.set_major_formatter(NullFormatter())
+    ax.xaxis.set_minor_formatter(NullFormatter())
+
+    ax.set_xticks([0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0])
+    ax.set_xticklabels(["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "1.0"])
     ax.set_yticks([100, 500, 1000,2500])
     ax.set_yticklabels(["100","500","1000","2500"])
     #ax.set_xticklabels(["0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "1.0"])
