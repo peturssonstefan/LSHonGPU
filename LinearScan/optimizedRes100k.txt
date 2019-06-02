@@ -1,6 +1,0 @@
-Time to read data files: 9811 
-Done parsing files. 
-N_Query = 10000 
-N_Data = 1183514 
-k is set to: 100
-Invalid implementation selected. 
